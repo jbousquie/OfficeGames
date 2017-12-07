@@ -66,9 +66,9 @@ SF.CreateLights = function(scene) {
     var pointLight = new BABYLON.PointLight('pointLight', V(0.0, 0.0, 0.0), scene);
     pointLight.diffuse = new BABYLON.Color3(0.0, 0.0, 1.0);
     pointLight.specular = new BABYLON.Color3(0.5, 0.5, 1);
-    var plIntensity = 0.6;
     pointLight.intensity = 0.0;
     SF.Lights.pointLight = pointLight;
+    SF.Lights.pointLightMaxIntensity = 0.6;
 
     // Point light used for the explosions
     var explosionLight = new BABYLON.PointLight('explosionLight', V(0.0, 0.0, 0.0), scene);
@@ -304,17 +304,31 @@ SF.LogicalLaser = function(laserSPS, i) {
 SF.ShipLasers = function(gameScene) {
     this.gameScene = gameScene;
     var scene = this.gameScene.scene;
-    var canRadius = this.gameScene.canRadius;
-    var canLength = this.gameScene.canLength;
-    var laserNb = this.gameScene.laserNb;
-    var laserSpeed = this.gameScene.laserSpeed;
-    this.ballRadius = canRadius * 8.0;          // ball initial radius
-    this.ballPos = V(0.0, 0.0, 0.0);            // tmp ball position to be added to its cannon
-    this.fired = false;
-    this.cannonHeats = this.gameScene
+    this.distance = this.gameScene.distance;
+    this.canRadius = this.gameScene.canRadius;
+    this.canLength = this.gameScene.canLength;
+    this.laserNb = this.gameScene.laserNb;
+    this.laserSpeed = this.gameScene.laserSpeed;
+    this.ballRadius = this.canRadius * 8.0;          // ball initial radius
+    this.ballPos = V(0.0, 0.0, 0.0);                 // tmp ball position to be added to its cannon
+    this.targetAxis = V(0.0, 0.0, 0.0);              // tmp cross vector target/camera
+    this.axis2 = V(0.0, 0.0, 0.0);                   // tmp cross vector laser/targetAxis
+    this.axis3 = V(0.0, 0.0, 0.0);                   // tmp cross vector laser/targetAxis 
+    this.fired = false;                                 // fire trigger pushed ?
+    this.cannons = this.gameScene.weapons.cannons;
+    this.cannonHeats = this.gameScene.weapons.cannonHeats;
+    this.cannonDirections = this.gameScene.weapons.cannonDirections;
+    this.fireHeat = this.gameScene.fireHeat;
+    this.pointerDistance = this.gameScene.pointerDistance;
+    this.sight = this.gameScene.weapons.sight;
+    this.camera = this.gameScene.camera;
+    this.fovCorrection = this.gameScene.fovCorrection;
+    this.laserLightInitialColor = new BABYLON.Color4(0.4, 0.4, 1.0, 0.8);
+    this.lightDistance = this.gameScene.lightDistance;
+    this.ballFovCorrection = this.gameScene.ballFovCorrection;
 
     // laser model
-    var positions = [-canRadius * 2, -1.0, 0.0, canRadius * 2, -1.0, 0.0, 0.0, 0.0, 0.0];
+    var positions = [-this.canRadius * 2, -1.0, 0.0, this.canRadius * 2, -1.0, 0.0, 0.0, 0.0, 0.0];
     var indices = [0|0, 1|0, 2|0];
     var normals = [];
     BABYLON.VertexData.ComputeNormals(positions, indices, normals);
@@ -345,8 +359,8 @@ SF.ShipLasers = function(gameScene) {
     
     // laser SPS : laser triangles and balls in the same system 
     var laserSPS = new BABYLON.SolidParticleSystem("lsps", scene);
-    laserSPS.addShape(laserModel, laserNb);
-    laserSPS.addShape(ballModel, laserNb);
+    laserSPS.addShape(laserModel, this.laserNb);
+    laserSPS.addShape(ballModel, this.laserNb);
     laserSPS.buildMesh();
     laserModel.dispose();
     ballModel.dispose();
@@ -356,12 +370,45 @@ SF.ShipLasers = function(gameScene) {
     laserSPS.mesh.hasVertexAlpha = true;
     laserSPS.mesh.material = SF.Materials.laser;
 
+    // laser lights in the distance SPS
+    var laserLightModel = BABYLON.MeshBuilder.CreatePlane("llmd", {size: 0.2}, scene);
+    var laserLightSPS = new BABYLON.SolidParticleSystem("llsps", scene);
+    laserLightSPS.addShape(laserLightModel, this.laserNb);
+    laserLightSPS.buildMesh();
+    laserLightModel.dispose();
+    laserLightSPS.isAlwaysVisible = true;
+    laserLightSPS.computeParticleTexture = false;
+    laserLightSPS.mesh.hasVertexAlpha = true;
+    laserLightSPS.mesh.material = SF.Materials.star;
+    for (var i = 0|0; i < this.laserNb; i++) {
+        var p = laserLightSPS.particles[i];
+        p.isVisible = false;
+        p.position.z = this.lightDistance;
+        p.velocity.z = 0.5;
+        p.color.copyFrom(this.laserLightInitialColor);
+        p.scaling.x = this.distance / this.lightDistance * 1.2;
+        p.scaling.y = p.scaling.x;
+    }
+    laserLightSPS.setParticles();
+    var pointerDistance = this.pointerDistance;   // vars for closure
+    var distance = this.distance;
+    laserLightSPS.updateParticle = function(p) {
+        if (p.isVisible) {
+            p.position.z += p.velocity.z;
+            p.position.x -= pointerDistance.x * p.position.z * p.velocity.z / distance;
+            p.position.y -= pointerDistance.y * p.position.z * p.velocity.z / distance;
+            if (p.position.z > distance) {
+                p.isVisible = false;
+            }
+        }        
+    };
+
     var laser;              // current laser object reference 
     var ball;
     var lasers = [];        // laser pool populated with laserNb lasers and laserNb laser balls
-    for (var l = 0|0; l < laserNb * 2|0; l++) {
+    for (var l = 0|0; l < this.laserNb * 2|0; l++) {
         laser = new SF.LogicalLaser(laserSPS, l);
-        laser.mesh.visible = false;
+        laser.mesh.isVisible = false;
         laser.mesh.scaling.y = 0.0;
         laser.mesh.scaling.x = 0.0;
         laser.mesh.position.z = this.sightDistance;
@@ -369,6 +416,11 @@ SF.ShipLasers = function(gameScene) {
     }
 
     // laser behavior
+    var laserNb = this.laserNb;
+    var laserSpeed = this.laserSpeed;
+    var canLength = this.canLength;
+    var ballPos = this.ballPos;
+    var cannons = this.cannons;
     laserSPS.updateParticle = function(p) {
        // process done once for the laser and its ball in the same call
        if (p.isVisible && p.idx < laserNb) {
@@ -398,6 +450,7 @@ SF.ShipLasers = function(gameScene) {
 
     this.pool = lasers;
     this.sps = laserSPS;
+    this.laserLightSPS = laserLightSPS;
     this.mesh = laserSPS.mesh
 };
 SF.ShipLasers.prototype.animate = function() {
@@ -405,51 +458,53 @@ SF.ShipLasers.prototype.animate = function() {
     var search = true;
     var can = (Math.random() * 4|0)|0;
     var pointLight = SF.Lights.pointLight;
-    var cannonHeats = this.gameScene.weapons.cannonHeats;
     pointLight.intensity -= 0.1;
     if (pointLight.intensity < 0.0) { pointLight.intensity = 0.0; }
-    if (fired && cannonHeats[can] == 0|0) {
-        cannonHeats[can] = fireHeat;
-        while (l < laserNb && search) {
-            laser = lasers[l];                  // current laser
-            ball = lasers[l + laserNb];         // current laser ball
+    if (this.fired && this.cannonHeats[can] == 0|0) {
+        this.cannonHeats[can] = this.fireHeat;
+        while (l < this.laserNb && search) {
+            var laser = this.pool[l];                  // current laser
+            var ball = this.pool[l + this.laserNb];         // current laser ball
+            var laserLights = this.laserLightSPS.particles;
             if (!laser.fired) { 
-                lg = starNb + l;                // related light index in the star SPS particle array
+                var lg = this.starNb + l;       // related light index in the star SPS particle array
                 laser.fired = true;             // activate the laser object
-                laser.mesh.alive = true;        // activate the related laser mesh 
-                ball.mesh.alive = true;         // activate the related laser ball
+                laser.mesh.isVisible = true;    // activate the related laser mesh 
+                ball.mesh.isVisible = true;     // activate the related laser ball
                 laser.cannon = can;             // store the laser fired cannon
                 ball.cannon = can;              // store the ball fired cannon
-                laser.screenTarget.copyFromFloats(pointerDistanceX, pointerDistanceY);
-                laser.target.copyFrom(sight.position);              // store the laser target position
-                laser.direction.copyFrom(cannonDirections[can]);    // store the laser direction from its cannon
+                laser.screenTarget.copyFromFloats(this.pointerDistance.x, this.pointerDistance.y);
+                laser.target.copyFrom(this.sight.position);              // store the laser target position
+                laser.direction.copyFrom(this.cannonDirections[can]);    // store the laser direction from its cannon
                 laser.scaling = laser.direction.length();             // store the laser scale
                 laser.direction.normalize();
                 laser.mesh.position.copyFrom(laser.target);                     // set the laser mesh position
-                laser.target.subtractToRef(camera.position, targetAxis);        // compute a cross vector from the direction and cam axis 
-                BABYLON.Vector3.CrossToRef(laser.direction, targetAxis, axis3);
-                BABYLON.Vector3.CrossToRef(targetAxis, axis3, axis2);
-                BABYLON.Vector3.RotationFromAxisToRef(axis3, axis2, targetAxis, laser.mesh.rotation);    // rotate the laser mesh
-                laser.mesh.scaling.y = laser.scaling * fovCorrection / laserSpeed;                          // scale the laser mesh triangle
+                laser.target.subtractToRef(this.camera.position, this.targetAxis);        // compute a cross vector from the direction and cam axis 
+                BABYLON.Vector3.CrossToRef(laser.direction, this.targetAxis, this.axis3);
+                BABYLON.Vector3.CrossToRef(this.targetAxis, this.axis3, this.axis2);
+                BABYLON.Vector3.RotationFromAxisToRef(this.axis3, this.axis2, this.targetAxis, laser.mesh.rotation);    // rotate the laser mesh
+                laser.mesh.scaling.y = laser.scaling * this.fovCorrection / this.laserSpeed;                          // scale the laser mesh triangle
                 laser.mesh.scaling.x = 1.0;
-                ball.mesh.scaling.x = ballRadius * (1.2 - Math.random() * 0.8);                           // scale the laser ball
+                ball.mesh.scaling.x = this.ballRadius * (1.2 - Math.random() * 0.8);                           // scale the laser ball
                 ball.mesh.scaling.y = ball.mesh.scaling.x;
-                laser.direction.scaleToRef(canLength + Math.random() * 0.05, ballPos);                  // set the ball position from the cannon and the laser direction
-                ball.mesh.position.copyFrom(ballPos.addInPlace(cannons[can].position));
-                stars.particles[lg].alive = true;                                                                       // activate the related laser light in the star sps
-                stars.particles[lg].position.x = pointerDistanceX * ballFovCorrection * aspectRatio;                    // set the laser light position in the distance with a correction
-                stars.particles[lg].position.y = pointerDistanceY * ballFovCorrection;
-                stars.particles[lg].position.z = lightDistance;
-                stars.particles[lg].isVisible = true;                                                                   // make the laser light visible
+                laser.direction.scaleToRef(this.canLength + Math.random() * 0.05, this.ballPos);                  // set the ball position from the cannon and the laser direction
+                ball.mesh.position.copyFrom(this.ballPos.addInPlace(this.cannons[can].position));
+                // laser lights in the distance
+                laserLights[l].isVisible = true;                                                                       // activate the related laser light in the star sps
+                laserLights[l].position.x = this.pointerDistance.x * this.ballFovCorrection * this.gameScene.aspectRatio;                    // set the laser light position in the distance with a correction
+                laserLights[l].position.y = this.pointerDistance.y * this.ballFovCorrection;
+                laserLights[l].position.z = this.lightDistance;
+                // laser lightning the scene
                 pointLight.position.copyFrom(ball.mesh.position);
-                pointLight.intensity = plIntensity;
+                pointLight.intensity = SF.Lights.pointLightMaxIntensity;
                 search = false;                                 // a free laser is just got from the pool, don't search further
             } else {
                 l++;
             }
         }
     }
-    laserMesh.setParticles();   
+    this.sps.setParticles();  
+    this.laserLightSPS.setParticles(); 
 };
 
 // Game scene
@@ -473,10 +528,13 @@ SF.GameScene = function(canvas, engine) {
     this.canvas = canvas;
     this.scene = null;
     this.camera = null;
+    this.engine = engine;
 
     this.fovCorrection = 0.0;                       // sight projection ratio from the screen space 
     this.aspectRatio = 0.0;                         //  aspect ratio from width/height screen size
     this.halfPI = Math.PI * 0.5;
+    this.lightDistance = this.distance * 0.66;      // distance from where the laser lights are emitted
+    this.ballFovCorrection = 0.0;                   // FOV correction for the balls in the distance
     this.rotMatrix = BABYLON.Matrix.Zero();                              // rotation matrix
     this.ang = BABYLON.Vector2.Zero();                                                     // rotation angle around Y and X
     this.moderation = 6.0;                                               // moderator for max angle computation : +/- PI/2 / moderation 
@@ -489,19 +547,24 @@ SF.GameScene = function(canvas, engine) {
     this.pressedPointer = [];
 
     // Keyboard and mouse inputs
-    var CTRL = 17|0;
-    var SHIFT = 16|0;
-    this.pressedPointer[0] = false;
+    this.keys = {
+        CTRL: 17|0,
+        SHIFT: 16|0
+    };
+
+    this.pointer = {left: false};
     var keyboard = this.keyboard;                                       // vars for closure
-    var pressedPointer = this.pressedPointer;
+    var pointer = this.pointer;
+    var keys = this.keys
     function updateInput(event, boolVal) {
-        if (event.keyCode == CTRL) { keyboard[CTRL] = boolVal; }
-        if (event.keyCode == SHIFT) { keyboard[SHIFT] = boolVal; }
+        if (event.keyCode == keys.CTRL)  { keyboard[keys.CTRL] = boolVal; }
+        if (event.keyCode == keys.SHIFT) { keyboard[keys.SHIFT] = boolVal; }
+        if (event.button === 0) { pointer.left = boolVal; }
     }    
     window.addEventListener('keydown', function(event) { updateInput(event, true); });
-    window.addEventListener('keyup', function(event) { updateInput(event, false); });
-    window.addEventListener('mousedown', function(e) { pressedPointer[0] = true; });
-    window.addEventListener('mouseup', function(e) { pressedPointer[0] = false; });
+    window.addEventListener('keyup', function(event)   { updateInput(event, false);});
+    window.addEventListener('pointerdown', function(event) { updateInput(event, true); });
+    window.addEventListener('pointerup', function(event)   { updateInput(event, false);});
 
 
     // BJS Scene
@@ -514,7 +577,8 @@ SF.GameScene = function(canvas, engine) {
     var cameraFov = Math.tan(camera.fov * 0.5);  
     this.camera = camera;                       
     this.fovCorrection = cameraFov * this.sightDistance;                
-    this.aspectRatio = engine.getAspectRatio(camera);                    
+    this.aspectRatio = engine.getAspectRatio(camera);
+    this.ballFovCorrection = cameraFov * this.lightDistance; 
 
     // Light creation
     SF.CreateLights(scene);
@@ -533,6 +597,7 @@ SF.GameScene = function(canvas, engine) {
     // Laser creation
     this.shipLasers = new SF.ShipLasers(this);
     light.excludedMeshes.push(this.shipLasers.mesh);
+    light.excludedMeshes.push(this.shipLasers.laserLightSPS.mesh);
 
     // Star creation
     this.stars = new SF.Stars(this);
@@ -540,17 +605,23 @@ SF.GameScene = function(canvas, engine) {
 
     var stars = this.stars;             // vars for closure
     var weapons = this.weapons;
+    var shipLasers = this.shipLasers;
+    var gameScene = this;
     scene.registerBeforeRender(function(){
+        gameScene.setCamera();
+        gameScene.getInputs();
         stars.animate();
         weapons.animate();
+        shipLasers.animate();
     });
-
 
 };
 SF.GameScene.prototype.getInputs = function() {
-    this.shipLasers.fired = (this.keyboard[SHIFT] || this.pressedPointer[0]) ? true : false;
+    this.shipLasers.fired = (this.keyboard[this.keys.SHIFT] || this.pointer.left) ? true : false;
 };
-
+SF.GameScene.prototype.setCamera = function() {
+    this.aspectRatio = this.engine.getAspectRatio(this.camera);
+}
 
 
 // Init
