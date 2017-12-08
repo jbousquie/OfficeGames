@@ -52,6 +52,13 @@ SF.CreateMaterials = function(scene) {
     laserMat.emissiveColor = BABYLON.Color3.White();
     laserMat.freeze();
     SF.Materials.laser = laserMat;
+    // Enemy material
+    var enMat = new BABYLON.StandardMaterial("em", scene);
+    enMat.emissiveColor = new BABYLON.Color3(1.0, 1.0, 1.0);
+    enMat.diffuseColor = new BABYLON.Color3(0.4, 1.0, 0.8);
+    enMat.diffuseTexture = rustyTexture;
+    enMat.specularPower = 1024.0;
+    SF.Materials.enemy = enMat;
 };
 
 // Lights
@@ -196,7 +203,157 @@ SF.Weapons.prototype.animate = function() {
         if (this.cannonHeats[i] > 0|0) { this.cannonHeats[i]--; }   // cannon cooling
     }
 };
- 
+
+// Enemies
+SF.Enemy = function(id, model, gameScene) {   
+    this.id = id;
+    this.model = model;                                                  // model mesh
+    this.gameScene = gameScene;
+    this.enemyShield = this.gameScene.enemyShield;
+    this.enemySpeed = this.gameScene.enemySpeed;
+    this.maxShield = 6|0 + (Math.random() * this.enemyShield)|0;             // Enemy resistance
+    this.speed = this.enemySpeed * Math.random();                            // speed
+    this.shield = this.maxShield;                                       // current shield value
+    this.explosion = false;                                             // if the Enemy is exploding
+    this.mustRebuild = false;                                           // if the sps must be rebuilt
+    this.randAng = V(Math.random(), Math.random(), Math.random());      // random correction for enemy particle rotations and velocities
+    this.initialParticlePositions = [];                                 // initial SPS particle positions computed with digest()
+    this.enemyExplosionVelocity = this.gameScene.enemyExplosionVelocity;
+    var scene = this.gameScene.scene;
+
+    // enemy SPS
+    var enemySPS = new BABYLON.SolidParticleSystem('esps' + this.id, scene);              // create a SPS per enemy
+    enemySPS.digest(this.model, {facetNb: 1|0, delta: 6|0});                                                // digest the enemy model
+    enemySPS.buildMesh();
+    enemySPS.mesh.material = SF.Materials.enemy;
+    enemySPS.mesh.hasVertexAlpha = false;
+    this.sps = enemySPS;                                                             // Enemy SPS
+    this.mesh = enemySPS.mesh;  
+        // enemy SPS init
+    for (var ep = 0|0; ep < enemySPS.nbParticles; ep++) {                       // initialize the enemy SPS particles
+        var curPart = enemySPS.particles[ep];
+        this.initialParticlePositions.push(curPart.position.clone());
+        curPart.velocity.copyFrom(curPart.position);
+        curPart.velocity.multiplyInPlace(this.randAng);
+        curPart.velocity.scaleInPlace(this.enemyExplosionVelocity);
+        curPart.uvs.z = 0.20;                                               // let's do a different render with the same texture as the cockpit one
+        curPart.uvs.w = 0.08;
+    }
+    enemySPS.setParticles();                                                // set the particle once at their computed positions
+    enemySPS.refreshVisibleSize();                                          // compute the bounding boxes
+        // enemy explosion
+    var enemy = this;
+    enemySPS.updateParticle = function(p) {
+        if (enemy.explosion) {
+            enemy.mesh.hasVertexAlpha = true;
+            p.position.addInPlace(p.velocity);
+            p.rotation.x += p.velocity.z * enemy.randAng.x;
+            p.rotation.y += p.velocity.x * enemy.randAng.y;
+            p.rotation.z += p.velocity.y * enemy.randAng.z;
+            p.color.a -= 0.01;
+            SF.Lights.explosionLight.intensity -= 0.001;
+            if (SF.Lights.explosionLight.intensity < 0.001) { SF.Lights.explosionLight.intensity = 0.0; }
+            if (p.color.a < 0.01) {
+                enemy.mustRebuild = true;
+            }
+        }
+    };
+        // set enemy initial positions in space
+    enemySPS.mesh.position.z = 50.0 + Math.random() * 10.0;
+    enemySPS.mesh.position.y = -4.0 + Math.random() * 8.0;
+    enemySPS.mesh.position.x = -this.gameScene.enemyNb * 4.0 + this.gameScene.enemyNb * 2.0 * this.id;
+    enemySPS.mesh.rotation.z = Math.random() * this.id;    
+};
+SF.Enemy.prototype.shoot = function() {
+
+};
+
+SF.Enemy.prototype.explode = function() {
+    this.explosion = true;
+};
+SF.Enemy.prototype.rebuild = function() {
+    this.explosion = false;
+    this.mesh.hasVertexAlpha = false;
+    this.mustRebuild = false;
+    this.shield = this.maxShield;
+    for (var ip = 0|0; ip < this.sps.nbParticles; ip++) {
+        this.sps.particles[ip].position.copyFrom(this.initialParticlePositions[ip]);
+        this.sps.particles[ip].color.a = 1.0;
+        this.sps.particles[ip].rotation.x = 0.0;
+        this.sps.particles[ip].rotation.y = 0.0;
+        this.sps.particles[ip].rotation.z = 0.0;
+        this.sps.particles[ip].velocity.copyFrom(this.sps.particles[ip].position);
+        this.sps.particles[ip].velocity.scaleInPlace(Math.random() * this.enemyExplosionVelocity);
+    } 
+    this.sps.setParticles();  
+};
+SF.Enemies = function(gameScene) {
+    this.gameScene = gameScene;
+    this.enemyNb = this.gameScene.enemyNb;
+    this.pool = [];
+    var scene = this.gameScene.scene;
+    // Enemy model
+    var disc1 = BABYLON.MeshBuilder.CreateCylinder('', { height: 0.1, tessellation: 16|0, diameter: 3.2 }, scene);    
+    var disc2 = BABYLON.MeshBuilder.CreateCylinder('', { height: 0.1, tessellation: 16|0, diameter: 3.2 }, scene);
+    var cyl = BABYLON.MeshBuilder.CreateCylinder('', { diameter: 0.5, height: 4.0, subdivisions: 2|0 }, scene);
+    var sph = BABYLON.MeshBuilder.CreateSphere('', { diameter: 2.0, segments: 4|0}, scene);
+    cyl.rotation.z = this.gameScene.halfPI;
+    disc1.rotation.z = this.gameScene.halfPI;      
+    disc2.rotation.z = -this.gameScene.halfPI;
+    disc1.position.x = 2.0;
+    disc2.position.x = -2.0;        
+    var enemyModel = BABYLON.Mesh.MergeMeshes([cyl, sph, disc1, disc2], true, true);
+
+    for (var e = 0; e < this.enemyNb; e++) {  
+        this.pool[e] = new SF.Enemy(e, enemyModel, this.gameScene);
+    }
+    enemyModel.dispose();
+};
+SF.Enemies.prototype.animate = function() {
+    var EnemyLimitX = 0.0;
+    var EnemyLimitY = 0.0;
+    var k = 0.0;
+    var sign = 1.0;
+    for (var e = 0|0; e < this.enemyNb; e++) {
+        var en = this.pool[e];
+        if (en.explosion) {             // if currently exploding
+            en.mesh.hasVertexAlpha = true;
+            if (en.mustRebuild) {       // if explosion just finished, then rebuild and reset the Enemy
+                en.rebuild();
+                en.randAng.multiplyByFloats(Math.random(), Math.random(), Math.random());
+            }
+            else {
+                en.sps.setParticles();
+            }
+        } else {
+            // Ennnemy flying around, tmp behavior : sinusoidal trajectory
+            sign = (e % 2 === 0) ? 1.0 : -1.0;
+            k = Date.now() * 0.0001 * sign * en.speed;
+                // keep the enemy around the frustum
+            EnemyLimitY = en.mesh.position.z * this.gameScene.cameraFov * 2.0;
+            EnemyLimitX = EnemyLimitY * this.gameScene.aspectRatio;
+            if (en.mesh.position.x < -EnemyLimitX) { en.mesh.position.x = -EnemyLimitX; }
+            if (en.mesh.position.x > EnemyLimitX)  { en.mesh.position.x = EnemyLimitX; }
+            if (en.mesh.position.y < -EnemyLimitY) { en.mesh.position.y = -EnemyLimitY; }
+            if (en.mesh.position.y > EnemyLimitY)  { en.mesh.position.y = EnemyLimitY; }
+
+            en.mesh.rotation.z += Math.sin(k) / (10.0 + e * 5.0) * en.speed;
+            en.mesh.rotation.y += (Math.sin(k) / (10.0 + e * 5.0)) / 8.0;
+            en.mesh.position.z = this.gameScene.sightDistance + this.gameScene.distance * (1.0 + Math.sin(k + e));
+            en.mesh.position.x += Math.cos(k - e) / 5.0;
+            en.mesh.position.y += Math.sin(k + e / 2.0) / 8.0;
+        }
+        en.mesh.position.x -= this.gameScene.pointerDistance.x * en.mesh.position.z  / this.gameScene.distance;
+        en.mesh.position.y -= this.gameScene.pointerDistance.y * en.mesh.position.z  / this.gameScene.distance;
+
+        // shooting
+        if (Math.random() < this.enemyFireFrequency && en.mesh.position.z > this.enemyFireLimit && !en.explosion) {
+            en.shoot();
+        }
+    }
+
+};
+
 // Stars
 SF.Stars = function(gameScene) {
     this.starNb = gameScene.starNb;
@@ -511,25 +668,39 @@ SF.ShipLasers.prototype.animate = function() {
 SF.GameScene = function(canvas, engine) {
 
     // Global parameters
+
+        // stars
     this.starNb = 150|0;                            // star total number in the pool
     this.distance = 60.0;                           // star emitter distance from the screen
     this.starSpeed = 1.0;                           // star speed on Z axis
-    this.sightDistance = 5.0;                       // sight distance     
     this.starEmitterSize = this.distance / 1.2      // size width of the particle emitter square surface
+        // sight, laser, weapons and cockpit
+    this.sightDistance = 5.0;                       // sight distance     
     this.canLength = 0.4;                           // cannon length
     this.canRadius = 0.04;                          // cannon radius    
     this.maxShield = 6.0;                           // initial cockpit resistance
     this.laserNb = 12|0;                            // number of avalaible lasers in the pool, suitable value around 8 (2 * 4 cannons)
     this.laserSpeed = 0.52;                         // laser decrease speed, suitable value = 0.6, the lower, the faster
     this.fireHeat = 15|0;                           // nb of frame before a cannon can fire again after a shoot, around 15 
-    this.score = 0|0;                               // game score
-    this.alive = true;                              // is the player alive ?
-
+    this.cockpitArea = V(1.0, 1.0, 2.5);            // cockpit sensitive area (-x to x, -y to y, fixed z)
+        // enemies
+    this.enemyNb = 10|0;                            // Max number of enemies
+    this.enemySpeed = 3.0;                          // enemy max speed
+    this.enemyExplosionVelocity = 1.15;             // enemy particle max velocity
+    this.enemyLaserNb = 60|0;                       // enemy laser max number
+    this.enemyLaserSpeed = 2.0;                     // enemy laser speed
+    this.enemyShield = 8|0;                         // enemy shield = 6 + random * enemyShield
+    this.enemyFireFrequency = 0.15;                 // between 0 and 1 : each frame for each enemy
+    this.enemyFireLimit = 4.0 * this.sightDistance; // enemy doesn't fire under this z limit
+    
+    // members
     this.canvas = canvas;
     this.scene = null;
     this.camera = null;
     this.engine = engine;
 
+    this.alive = true;                              // is the player alive ?
+    this.score = 0|0;                               // game score   
     this.fovCorrection = 0.0;                       // sight projection ratio from the screen space 
     this.aspectRatio = 0.0;                         //  aspect ratio from width/height screen size
     this.halfPI = Math.PI * 0.5;
@@ -603,9 +774,13 @@ SF.GameScene = function(canvas, engine) {
     this.stars = new SF.Stars(this);
     light.excludedMeshes.push(this.stars.mesh);
 
+    // Enemy creation
+    this.enemies = new SF.Enemies(this);
+
     var stars = this.stars;             // vars for closure
     var weapons = this.weapons;
     var shipLasers = this.shipLasers;
+    var enemies = this.enemies;
     var gameScene = this;
     scene.registerBeforeRender(function(){
         gameScene.setCamera();
@@ -613,6 +788,7 @@ SF.GameScene = function(canvas, engine) {
         stars.animate();
         weapons.animate();
         shipLasers.animate();
+        enemies.animate();
     });
 
 };
