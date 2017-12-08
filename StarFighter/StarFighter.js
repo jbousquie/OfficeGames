@@ -353,7 +353,50 @@ SF.Enemies.prototype.animate = function() {
     }
 
 };
+SF.EnemyLasers = function(gameScene) {
+    var scene = this.gameScene.scene;
+    this.enemyLaserNb = this.gameScene.enemyLaserNb;
+    this.enemyLaserSpeed = this.gameScene.enemyLaserSpeed;
+    this.enemyLaserInitialColor = this.gameScene.enemyLaserInitialColor;
+    
+    var enemyLaserModel = BABYLON.MeshBuilder.CreatePlane("elm", {size: 0.2}, scene);
+    var enemyLaserSPS = new BABYLON.SolidParticleSystem('elsps', scene);
+    enemyLaserSPS.addShape(enemyLaserModel, this.enemyLaserNb);
+    enemyLaserSPS.buildMesh();
+    this.sps = enemyLaserSPS;
+    this.mesh = enemyLaserSPS.mesh;
+    enemyLaserSPS.mesh.material = SF.Materials.star;
+    for (var l = 0; l < this.enemyLaserNb; l++) {
+        var laser = enemyLaserSPS.particles[l];
+        laser.isVisible = false;
+        laser.color.copyFrom(this.enemyLaserInitialColor);    
+    }
+    enemyLaserSPS.setParticles();
+    enemyLaserSPS.isAlwaysVisible = true;
+    enemyLaserSPS.computeParticleTexture = false;
+    
+    // enemy laser SPS behavior
+    var pointerDistance = this.gameScene.pointerDistance;
+    var distance = this.gameScene.distance;
+    var cockpitArea = this.gameScene.cockpitArea;
+    enemyLaserSPS.updateParticle= function(p) {
+        if (p.isVisible) {
+            p.position.addInPlace(p.velocity);
+            p.position.x += pointerDistance.x * p.position.z * p.velocity.z / distance;
+            p.position.y += pointerDistance.y * p.position.z * p.velocity.z / distance;
+            p.rotation.z += 0.66;
+            p.scaling.x = 2.0 + cockpitArea.z / p.position.z * 4.0;
+            p.scaling.y = 4.0 * p.scaling.x;
+            p.color.a += 0.005;
+            p.color.r += 0.01;
+            p.color.g += 0.01;
+            if (p.color.a > 0.9) { p.color.a = 0.9; }
+            if (p.color.r > 1.0) { p.color.r = 1.0; }
+            if (p.color.g < 0.0) { p.color.g = 0.0; }
+        }
+    };
 
+};
 // Stars
 SF.Stars = function(gameScene) {
     this.starNb = gameScene.starNb;
@@ -480,7 +523,7 @@ SF.ShipLasers = function(gameScene) {
     this.sight = this.gameScene.weapons.sight;
     this.camera = this.gameScene.camera;
     this.fovCorrection = this.gameScene.fovCorrection;
-    this.laserLightInitialColor = new BABYLON.Color4(0.4, 0.4, 1.0, 0.8);
+    this.laserLightInitialColor = this.gameScene.laserLightInitialColor;
     this.lightDistance = this.gameScene.lightDistance;
     this.ballFovCorrection = this.gameScene.ballFovCorrection;
 
@@ -683,6 +726,7 @@ SF.GameScene = function(canvas, engine) {
     this.laserSpeed = 0.52;                         // laser decrease speed, suitable value = 0.6, the lower, the faster
     this.fireHeat = 15|0;                           // nb of frame before a cannon can fire again after a shoot, around 15 
     this.cockpitArea = V(1.0, 1.0, 2.5);            // cockpit sensitive area (-x to x, -y to y, fixed z)
+    this.laserLightInitialColor = new BABYLON.Color4(0.4, 0.4, 1.0, 0.8);
         // enemies
     this.enemyNb = 10|0;                            // Max number of enemies
     this.enemySpeed = 3.0;                          // enemy max speed
@@ -692,6 +736,9 @@ SF.GameScene = function(canvas, engine) {
     this.enemyShield = 8|0;                         // enemy shield = 6 + random * enemyShield
     this.enemyFireFrequency = 0.15;                 // between 0 and 1 : each frame for each enemy
     this.enemyFireLimit = 4.0 * this.sightDistance; // enemy doesn't fire under this z limit
+    this.enemyLaserInitialColor = new BABYLON.Color4(0.8, 0.0, 0.0, 0.5);
+    this.impactInitialColor = new BABYLON.Color4(0.6, 0.6, 1.0, 0.85); // as their names suggest it
+    this.explosionInitialColor = new BABYLON.Color4(1.0, 1.0, 0.0, 0.98);
     
     // members
     this.canvas = canvas;
