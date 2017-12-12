@@ -89,7 +89,7 @@ SF.CreateLights = function(scene) {
     var explosionLight = new BABYLON.PointLight('explosionLight', V(0.0, 0.0, 0.0), scene);
     explosionLight.diffuse = new BABYLON.Color3(1.0, 1.0, 0.6);
     explosionLight.specular = new BABYLON.Color3(1.0, 1.0, 0.8);
-    var explLghtIntensity = 1.0;
+    SF.Lights.explLghtIntensity = 1.0;
     explosionLight.intensity = 0.0;  
     SF.Lights.explosionLight = explosionLight;
 };
@@ -288,32 +288,28 @@ SF.Enemy.prototype.checkHit = function(laser) {
     var boxSizeY = (bbox.maximumWorld.y - bbox.minimumWorld.y) * bboxpc * 0.5 / enemyCorrection;
     // check if the target is in some percentage if the AABB
     if (laser.screenTarget.x >= eX - boxSizeX && laser.screenTarget.x <= eX + boxSizeX && laser.screenTarget.y >= eY - boxSizeY && laser.screenTarget.y <= eY + boxSizeY ) {
-        this.shield--;
-        
+        this.shield--;    
         var impact = this.gameScene.impacts.sps.particles[laser.id];    // get the related impact from the laser
         impact.isVisible = true;                                        // activate the impact particle
         impact.position.x = laser.target.x;                             // set the impact at the target position
         impact.position.y = laser.target.y;
         impact.scaling.x = this.gameScene.distance / this.mesh.position.z * 1.2;
         impact.scaling.y = impact.scaling.x;
-                
         // enemy exploses
         if (this.shield === 0|0) {
-            this.explosion = true;
-            /*
-            explosions[p.idx] = true;
-            exploded[p.idx] = enemies[e].mesh;
             impact.scaling.x = 60.0;
-            explosionLight.position.copyFrom(enemies[e].mesh.position);
-            explosionLight.intensity = explLghtIntensity;
-            */
-            this.gameScene.score += 100|0;
+            impact.position.copyFrom(this.mesh.position);
+            this.gameScene.impacts.explosions[laser.id] = true;
+            this.explode();
         } 
     }
 };
 
 SF.Enemy.prototype.explode = function() {
     this.explosion = true;
+    SF.Lights.explosionLight.position.copyFrom(this.mesh.position);
+    SF.Lights.explosionLight.intensity = SF.Lights.explLghtIntensity;
+    this.gameScene.score += 100|0;
 };
 SF.Enemy.prototype.rebuild = function() {
     this.explosion = false;
@@ -765,6 +761,7 @@ SF.Impacts = function(gameScene) {
     this.impactNb = this.gameScene.laserNb;
     this.impactInitialColor = this.gameScene.impactInitialColor;
     this.explosionInitialColor = this.gameScene.explosionInitialColor;
+    this.explosions = [];               // boolean array : is the impact an explosion ?
     var scene = this.gameScene.scene;
 
     // impact SPS
@@ -777,10 +774,12 @@ SF.Impacts = function(gameScene) {
         impactSPS.particles[i].isVisible = false;
         impactSPS.particles[i].position.z = this.gameScene.sightDistance;
         impactSPS.particles[i].color.copyFrom(this.impactInitialColor);
+        this.explosions.push(false);
     }
     impactSPS.setParticles();
     impactSPS.mesh.freezeNormals();
     impactSPS.isAlwaysVisible = true;
+    impactSPS.mesh.hasVertexAlpha = true;
     impactSPS.computeParticleRotation = false;
     impactSPS.computeParticleTexture = false;
     impactSPS.mesh.material = SF.Materials.impact;
@@ -789,16 +788,37 @@ SF.Impacts = function(gameScene) {
 
     // impact SPS behavior
     var impactInitialColor = this.impactInitialColor;
+    var explosions = this.explosions;
+    var gameScene = this.gameScene;
     impactSPS.updateParticle = function(p) {
         if (p.isVisible) {
-            p.color.a -= 0.01;
-            p.scaling.x -= 0.1;
-            p.scaling.y = p.scaling.x;    
-            // recycle impact
-            if (p.scaling.x < 0.01) {         
-                p.isVisible = false;
-                p.color.copyFrom(impactInitialColor);
-            }     
+            p.position.x -= gameScene.pointerDistance.x * p.position.z / gameScene.distance;
+            p.position.y -= gameScene.pointerDistance.y * p.position.z / gameScene.distance; 
+            if (explosions[p.idx]) {
+                p.scaling.x *= (1.0 + 0.5 * Math.random());
+                p.scaling.y = p.scaling.x / (1.1 + Math.random());
+                p.color.r = gameScene.explosionInitialColor.r - Math.random() * 0.1;
+                p.color.g = gameScene.explosionInitialColor.g - Math.random() * 0.1;
+                p.color.b = gameScene.explosionInitialColor.b;
+                p.color.a -= 0.05;
+                // recycle explosion
+                if (p.scaling.x > 250.0) {         
+                    p.isVisible = false;
+                    p.position.z = gameScene.sightDistance;
+                    p.color.copyFrom(impactInitialColor);
+                    explosions[p.idx] = false;
+                }
+            }
+            else {
+                p.color.a -= 0.01;
+                p.scaling.x -= 0.1;
+                p.scaling.y = p.scaling.x;    
+                // recycle impact
+                if (p.scaling.x < 0.01) {         
+                    p.isVisible = false;
+                    p.color.copyFrom(impactInitialColor);
+                }     
+            }
         }
         
     };
