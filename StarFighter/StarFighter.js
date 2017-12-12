@@ -59,6 +59,14 @@ SF.CreateMaterials = function(scene) {
     enMat.diffuseTexture = rustyTexture;
     enMat.specularPower = 1024.0;
     SF.Materials.enemy = enMat;
+    // Impact and explosion material
+    var impactMat = new BABYLON.StandardMaterial("im", scene);
+    impactMat.emissiveColor = BABYLON.Color3.White();
+    impactMat.diffuseColor = BABYLON.Color3.White();
+    impactMat.diffuseTexture = flare;
+    impactMat.useAlphaFromDiffuseTexture = true;
+    impactMat.freeze(); 
+    SF.Materials.impact = impactMat;
 };
 
 // Lights
@@ -267,6 +275,42 @@ SF.Enemy = function(id, model, gameScene) {
 SF.Enemy.prototype.shoot = function() {
 
 };
+SF.Enemy.prototype.checkHit = function(laser) {
+    var aspectRatio = this.gameScene.aspectRatio;
+    var bboxpc = this.gameScene.bboxpc;
+    // compute the enemy 2D coordinates in the screen space 
+    var enemyCorrection = this.mesh.position.z * this.gameScene.cameraFov;
+    var eX = this.mesh.position.x / (enemyCorrection * aspectRatio);
+    var eY = this.mesh.position.y / enemyCorrection;
+    // enemy bbox in the screen space
+    var bbox = this.mesh.getBoundingInfo().boundingBox;
+    var boxSizeX = (bbox.maximumWorld.x - bbox.minimumWorld.x) * bboxpc * 0.5 / (enemyCorrection * aspectRatio);
+    var boxSizeY = (bbox.maximumWorld.y - bbox.minimumWorld.y) * bboxpc * 0.5 / enemyCorrection;
+    // check if the target is in some percentage if the AABB
+    if (laser.screenTarget.x >= eX - boxSizeX && laser.screenTarget.x <= eX + boxSizeX && laser.screenTarget.y >= eY - boxSizeY && laser.screenTarget.y <= eY + boxSizeY ) {
+        this.shield--;
+        
+        var impact = this.gameScene.impacts.sps.particles[laser.id];    // get the related impact from the laser
+        impact.isVisible = true;                                        // activate the impact particle
+        impact.position.x = laser.target.x;                             // set the impact at the target position
+        impact.position.y = laser.target.y;
+        impact.scaling.x = this.gameScene.distance / this.mesh.position.z * 1.2;
+        impact.scaling.y = impact.scaling.x;
+                
+        // enemy exploses
+        if (this.shield === 0|0) {
+            this.explosion = true;
+            /*
+            explosions[p.idx] = true;
+            exploded[p.idx] = enemies[e].mesh;
+            impact.scaling.x = 60.0;
+            explosionLight.position.copyFrom(enemies[e].mesh.position);
+            explosionLight.intensity = explLghtIntensity;
+            */
+            this.gameScene.score += 100|0;
+        } 
+    }
+};
 
 SF.Enemy.prototype.explode = function() {
     this.explosion = true;
@@ -308,6 +352,11 @@ SF.Enemies = function(gameScene) {
         this.pool[e] = new SF.Enemy(e, enemyModel, this.gameScene);
     }
     enemyModel.dispose();
+};
+SF.Enemies.prototype.checkHit = function(laser) {
+    for (var e = 0|0; e < this.enemyNb; e++) {
+        this.pool[e].checkHit(laser);
+    }
 };
 SF.Enemies.prototype.animate = function() {
     var EnemyLimitX = 0.0;
@@ -493,6 +542,7 @@ SF.Stars.prototype.animate = function() {
 
 // Lasers
 SF.LogicalLaser = function(laserSPS, i) {
+    this.id = i;                                    // laser id
     this.mesh = laserSPS.particles[i];              // reference to the laser sps i-th particle
     this.target = V(0.0, 0.0, 0.0);                 // world target coordinates, in the sight plane
     this.direction = V(0.0, 0.0, 0.0);              // vector : laser cannon - target
@@ -621,6 +671,7 @@ SF.ShipLasers = function(gameScene) {
     var canLength = this.canLength;
     var ballPos = this.ballPos;
     var cannons = this.cannons;
+    var gameScene = this.gameScene;
     laserSPS.updateParticle = function(p) {
        // process done once for the laser and its ball in the same call
        if (p.isVisible && p.idx < laserNb) {
@@ -643,7 +694,8 @@ SF.ShipLasers = function(gameScene) {
                 laser.fired = false;
                 ball.fired = false;
                 p.isVisible = false; 
-                // check enemy hit here ... 
+                // check enemy hit 
+                gameScene.enemies.checkHit(laser);
             }  
         }    
     };
@@ -707,6 +759,54 @@ SF.ShipLasers.prototype.animate = function() {
     this.laserLightSPS.setParticles(); 
 };
 
+// Impacts and explosions
+SF.Impacts = function(gameScene) {
+    this.gameScene = gameScene;
+    this.impactNb = this.gameScene.laserNb;
+    this.impactInitialColor = this.gameScene.impactInitialColor;
+    this.explosionInitialColor = this.gameScene.explosionInitialColor;
+    var scene = this.gameScene.scene;
+
+    // impact SPS
+    var impactModel = BABYLON.MeshBuilder.CreatePlane("imdl", {size: 0.2}, scene);
+    var impactSPS = new BABYLON.SolidParticleSystem("isps", scene);
+    impactSPS.addShape(impactModel, this.impactNb);
+    impactSPS.buildMesh();
+    impactModel.dispose();
+    for (var i = 0; i < impactSPS.nbParticles; i++) {
+        impactSPS.particles[i].isVisible = false;
+        impactSPS.particles[i].position.z = this.gameScene.sightDistance;
+        impactSPS.particles[i].color.copyFrom(this.impactInitialColor);
+    }
+    impactSPS.setParticles();
+    impactSPS.mesh.freezeNormals();
+    impactSPS.isAlwaysVisible = true;
+    impactSPS.computeParticleRotation = false;
+    impactSPS.computeParticleTexture = false;
+    impactSPS.mesh.material = SF.Materials.impact;
+    this.sps = impactSPS;
+    this.mesh = this.sps.mesh;
+
+    // impact SPS behavior
+    var impactInitialColor = this.impactInitialColor;
+    impactSPS.updateParticle = function(p) {
+        if (p.isVisible) {
+            p.color.a -= 0.01;
+            p.scaling.x -= 0.1;
+            p.scaling.y = p.scaling.x;    
+            // recycle impact
+            if (p.scaling.x < 0.01) {         
+                p.isVisible = false;
+                p.color.copyFrom(impactInitialColor);
+            }     
+        }
+        
+    };
+};
+SF.Impacts.prototype.animate = function() {
+    this.sps.setParticles();
+};
+
 // Game scene
 SF.GameScene = function(canvas, engine) {
 
@@ -739,6 +839,7 @@ SF.GameScene = function(canvas, engine) {
     this.enemyLaserInitialColor = new BABYLON.Color4(0.8, 0.0, 0.0, 0.5);
     this.impactInitialColor = new BABYLON.Color4(0.6, 0.6, 1.0, 0.85); // as their names suggest it
     this.explosionInitialColor = new BABYLON.Color4(1.0, 1.0, 0.0, 0.98);
+    this.bboxpc = 0.75;                             // percentage of the enemy bbox size to check the laser hit against
     
     // members
     this.canvas = canvas;
@@ -748,6 +849,7 @@ SF.GameScene = function(canvas, engine) {
 
     this.alive = true;                              // is the player alive ?
     this.score = 0|0;                               // game score   
+    this.cameraFov = 0.0;                           // camera fov
     this.fovCorrection = 0.0;                       // sight projection ratio from the screen space 
     this.aspectRatio = 0.0;                         //  aspect ratio from width/height screen size
     this.halfPI = Math.PI * 0.5;
@@ -792,11 +894,11 @@ SF.GameScene = function(canvas, engine) {
     // Camera : fixed, looking toward +Z
     var camera = new BABYLON.TargetCamera("camera", V(0.0, 0.0, 0.0), scene);
     camera.direction = V(0.0, 0.0, 1.0);
-    var cameraFov = Math.tan(camera.fov * 0.5);  
+    this.cameraFov = Math.tan(camera.fov * 0.5);  
     this.camera = camera;                       
-    this.fovCorrection = cameraFov * this.sightDistance;                
+    this.fovCorrection = this.cameraFov * this.sightDistance;                
     this.aspectRatio = engine.getAspectRatio(camera);
-    this.ballFovCorrection = cameraFov * this.lightDistance; 
+    this.ballFovCorrection = this.cameraFov * this.lightDistance; 
 
     // Light creation
     SF.CreateLights(scene);
@@ -824,18 +926,19 @@ SF.GameScene = function(canvas, engine) {
     // Enemy creation
     this.enemies = new SF.Enemies(this);
 
-    var stars = this.stars;             // vars for closure
-    var weapons = this.weapons;
-    var shipLasers = this.shipLasers;
-    var enemies = this.enemies;
+    // Impact/Explosion creation
+    this.impacts = new SF.Impacts(this);
+    light.excludedMeshes.push(this.impacts.mesh);
+
     var gameScene = this;
     scene.registerBeforeRender(function(){
         gameScene.setCamera();
         gameScene.getInputs();
-        stars.animate();
-        weapons.animate();
-        shipLasers.animate();
-        enemies.animate();
+        gameScene.stars.animate();
+        gameScene.weapons.animate();
+        gameScene.shipLasers.animate();
+        gameScene.enemies.animate();
+        gameScene.impacts.animate();
     });
 
 };
