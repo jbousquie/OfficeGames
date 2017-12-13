@@ -98,6 +98,7 @@ SF.CreateLights = function(scene) {
 SF.Starship = function(gameScene) {
     var scene = gameScene.scene;
     this.gameScene = gameScene;
+    this.cockpitArea = this.gameScene.cockpitArea;
     // Cockpit : two tubes and one ribbon merged together
     var path1 = [V(-1.5, 0.8, 0.0), V(-0.5, -0.8, 3.0)];
     var path2 = [V(1.5, 0.8, 0.0), V(0.5, -0.8, 3.0)];
@@ -107,13 +108,13 @@ SF.Starship = function(gameScene) {
     this.rpath2 = [];
     this.rpath3 = [];
     this.initialRpath3 = [];
-    var cockpitHeight = 0.14;
+    this.cockpitHeight = this.gameScene.cockpitHeight;
     for (var r = 0; r <= 10; r ++) {
         var t = r / 10; 
         this.rpath1.push( V(-0.5 + t, -0.05 * Math.cos(r * Math.PI / 5.0) - 0.75, 3.1) );
         this.rpath2.push( V(-0.5 + t, -1.0, 0.0 ) );
-        this.rpath3.push( V(this.rpath1[r].x, this.rpath1[r].y + cockpitHeight, this.rpath1[r].z) );
-        this.initialRpath3.push( V(this.rpath1[r].x, this.rpath1[r].y + cockpitHeight, this.rpath1[r].z) );
+        this.rpath3.push( V(this.rpath1[r].x, this.rpath1[r].y + this.cockpitHeight, this.rpath1[r].z) );
+        this.initialRpath3.push( V(this.rpath1[r].x, this.rpath1[r].y + this.cockpitHeight, this.rpath1[r].z) );
     }
     this.rpath3[0|0].y = this.rpath1[0|0].y;
     this.rpath3[10|0].y = this.rpath1[10|0].y;
@@ -152,6 +153,42 @@ SF.Starship.prototype.resetShield = function() {
             this.gameScene.alive = true;
         }
     } 
+};
+SF.Starship.prototype.checkLaserHit = function(laser) {
+    if (laser.position.x < this.cockpitArea.x && laser.position.x > -this.cockpitArea.x && laser.position.y < this.cockpitArea.y && laser.position.y > -this.cockpitArea.y ) {
+        var cockpitImpactRate = (Math.random() - 0.5) * 0.3;
+        /*
+        // shake camera
+        ouchX = true;
+        ouchY = true;
+        ouchZ = true;
+        camToLeft = false;
+        returnCamX = false;
+        returnCamY = false;
+        returnCamZ = false;
+        this.cockpitHeight = 0.14;
+        tmpCam.copyFromFloats(cockpitImpactRate, Math.random() * 0.1, -Math.random() * 0.1) ;
+        cockpitImpactRate = Math.abs(cockpitImpactRate);
+        if (tmpCam.x < 0.0) { camToLeft = true; }
+        light.diffuse.b = 0.0;
+        light.diffuse.g = 0.5;
+        light.intensity = 1.0;
+        */
+        this.updateShield(Math.abs(cockpitImpactRate));
+    }
+};
+SF.Starship.prototype.shakeCockpit = function() {
+
+};
+SF.Starship.prototype.updateShield = function(rate) {
+    this.shield -= rate;
+    SF.Materials.shield.diffuseColor.g -= rate / this.shield * 0.8;
+    SF.Materials.shield.diffuseColor.r += rate / this.shield * 0.8;
+    SF.Materials.shield.alpha += rate / this.shield * 0.5;
+    for (var i = 1|0; i < this.rpath3.length - 1|0; i++) {
+        this.rpath3[i].y -= (this.cockpitHeight / 2.0) * (rate / this.shield);
+    }
+    BABYLON.MeshBuilder.CreateRibbon(null, {pathArray: this.pathArray, instance: this.shieldMesh});
 };
 
 // Weapons
@@ -448,6 +485,7 @@ SF.EnemyLasers = function(gameScene) {
     var pointerDistance = this.gameScene.pointerDistance;
     var distance = this.gameScene.distance;
     var cockpitArea = this.gameScene.cockpitArea;
+    var starship = this.gameScene.starship;
     enemyLaserSPS.updateParticle= function(p) {
         if (p.isVisible) {
             p.position.addInPlace(p.velocity);
@@ -465,36 +503,7 @@ SF.EnemyLasers = function(gameScene) {
             // recycle
             if (p.position.z < cockpitArea.z) {
                 p.isVisible = false;
-                // check laser hits cockpit
-                if (p.position.x < cockpitArea.x && p.position.x > -cockpitArea.x && p.position.y < cockpitArea.y && p.position.y > -cockpitArea.y ) {
-                    /*
-                    // shake camera
-                    ouchX = true;
-                    ouchY = true;
-                    ouchZ = true;
-                    camToLeft = false;
-                    returnCamX = false;
-                    returnCamY = false;
-                    returnCamZ = false;
-                    cockpitImpactRate = (Math.random() - 0.5) * 0.3;
-                    tmpCam.copyFromFloats(cockpitImpactRate, Math.random() * 0.1, -Math.random() * 0.1) ;
-                    cockpitImpactRate = Math.abs(cockpitImpactRate);
-                    if (tmpCam.x < 0.0) { camToLeft = true; }
-                    light.diffuse.b = 0.0;
-                    light.diffuse.g = 0.5;
-                    light.intensity = 1.0;
-                
-                    // update shield
-                    shield -= cockpitImpactRate;
-                    shieldMat.diffuseColor.g -= cockpitImpactRate / shield * 0.8;
-                    shieldMat.diffuseColor.r += cockpitImpactRate / shield * 0.8;
-                    shieldMat.alpha += cockpitImpactRate / shield * 0.5;
-                    for (var i = 1|0; i < rpath3.length - 1|0; i++) {
-                        rpath3[i].y -= (cockpitHeight / 2.0) * (cockpitImpactRate / shield);
-                    }
-                    BABYLON.MeshBuilder.CreateRibbon(null, {pathArray: [rpath3, rpath1], instance: shieldMesh});
-                    */
-                }
+                starship.checkLaserHit(p);
             }
         }
     };
@@ -908,6 +917,7 @@ SF.GameScene = function(canvas, engine) {
     this.laserSpeed = 0.52;                         // laser decrease speed, suitable value = 0.6, the lower, the faster
     this.fireHeat = 15|0;                           // nb of frame before a cannon can fire again after a shoot, around 15 
     this.cockpitArea = V(1.0, 1.0, 2.5);            // cockpit sensitive area (-x to x, -y to y, fixed z)
+    this.cockpitHeight = 0.14;
     this.laserLightInitialColor = new BABYLON.Color4(0.4, 0.4, 1.0, 0.8);
         // enemies
     this.enemyNb = 10|0;                            // Max number of enemies
