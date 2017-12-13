@@ -273,7 +273,27 @@ SF.Enemy = function(id, model, gameScene) {
     enemySPS.mesh.rotation.z = Math.random() * this.id;    
 };
 SF.Enemy.prototype.shoot = function() {
-
+    var search = true;
+    // search an avalaible enemy laser in the pool
+    var l = 0|0;
+    var lasersps = this.gameScene.enemyLasers.sps;
+    var laser = lasersps.particles;
+    while (l < lasersps.nbParticles && search) {
+        if (!laser[l].isVisible) {
+            for (var il = 0|0; il < 2|0; il++) {
+                laser[l + il].isVisible = true;
+                laser[l + il].position.copyFrom(this.mesh.position);
+                this.mesh.position.scaleToRef(-1.0, laser[l + il].velocity);
+                laser[l + il].velocity.normalize();
+                laser[l + il].velocity.scaleInPlace(this.gameScene.enemyLasers.enemyLaserSpeed);
+                laser[l + il].color.copyFrom(this.gameScene.enemyLasers.enemyLaserInitialColor);
+                laser[l + il].rotation.z = this.gameScene.halfPI * il;
+                search = false;
+            }
+        } else {
+            l += 2|0;
+        }
+    }
 };
 SF.Enemy.prototype.checkHit = function(laser) {
     var aspectRatio = this.gameScene.aspectRatio;
@@ -297,16 +317,15 @@ SF.Enemy.prototype.checkHit = function(laser) {
         impact.scaling.y = impact.scaling.x;
         // enemy exploses
         if (this.shield === 0|0) {
-            impact.scaling.x = 60.0;
-            impact.position.copyFrom(this.mesh.position);
-            this.gameScene.impacts.explosions[laser.id] = true;
-            this.explode();
+            this.explode(impact);
         } 
     }
 };
-
-SF.Enemy.prototype.explode = function() {
+SF.Enemy.prototype.explode = function(impact) {
     this.explosion = true;
+    impact.scaling.x = 60.0;
+    impact.position.copyFrom(this.mesh.position);
+    this.gameScene.impacts.explosions[impact.idx] = true;
     SF.Lights.explosionLight.position.copyFrom(this.mesh.position);
     SF.Lights.explosionLight.intensity = SF.Lights.explLghtIntensity;
     this.gameScene.score += 100|0;
@@ -330,6 +349,8 @@ SF.Enemy.prototype.rebuild = function() {
 SF.Enemies = function(gameScene) {
     this.gameScene = gameScene;
     this.enemyNb = this.gameScene.enemyNb;
+    this.enemyFireFrequency = this.gameScene.enemyFireFrequency;
+    this.enemyFireLimit = this.gameScene.enemyFireLimit;
     this.pool = [];
     var scene = this.gameScene.scene;
     // Enemy model
@@ -399,11 +420,14 @@ SF.Enemies.prototype.animate = function() {
 
 };
 SF.EnemyLasers = function(gameScene) {
-    var scene = this.gameScene.scene;
+    this.gameScene = gameScene;
     this.enemyLaserNb = this.gameScene.enemyLaserNb;
     this.enemyLaserSpeed = this.gameScene.enemyLaserSpeed;
     this.enemyLaserInitialColor = this.gameScene.enemyLaserInitialColor;
-    
+    this.enemyFireFrequency = this.gameScene.enemyFireFrequency;
+    this.enemyFireLimit = this.gameScene.enemyFireLimit;
+
+    var scene = this.gameScene.scene;
     var enemyLaserModel = BABYLON.MeshBuilder.CreatePlane("elm", {size: 0.2}, scene);
     var enemyLaserSPS = new BABYLON.SolidParticleSystem('elsps', scene);
     enemyLaserSPS.addShape(enemyLaserModel, this.enemyLaserNb);
@@ -438,10 +462,48 @@ SF.EnemyLasers = function(gameScene) {
             if (p.color.a > 0.9) { p.color.a = 0.9; }
             if (p.color.r > 1.0) { p.color.r = 1.0; }
             if (p.color.g < 0.0) { p.color.g = 0.0; }
+            // recycle
+            if (p.position.z < cockpitArea.z) {
+                p.isVisible = false;
+                // check laser hits cockpit
+                if (p.position.x < cockpitArea.x && p.position.x > -cockpitArea.x && p.position.y < cockpitArea.y && p.position.y > -cockpitArea.y ) {
+                    /*
+                    // shake camera
+                    ouchX = true;
+                    ouchY = true;
+                    ouchZ = true;
+                    camToLeft = false;
+                    returnCamX = false;
+                    returnCamY = false;
+                    returnCamZ = false;
+                    cockpitImpactRate = (Math.random() - 0.5) * 0.3;
+                    tmpCam.copyFromFloats(cockpitImpactRate, Math.random() * 0.1, -Math.random() * 0.1) ;
+                    cockpitImpactRate = Math.abs(cockpitImpactRate);
+                    if (tmpCam.x < 0.0) { camToLeft = true; }
+                    light.diffuse.b = 0.0;
+                    light.diffuse.g = 0.5;
+                    light.intensity = 1.0;
+                
+                    // update shield
+                    shield -= cockpitImpactRate;
+                    shieldMat.diffuseColor.g -= cockpitImpactRate / shield * 0.8;
+                    shieldMat.diffuseColor.r += cockpitImpactRate / shield * 0.8;
+                    shieldMat.alpha += cockpitImpactRate / shield * 0.5;
+                    for (var i = 1|0; i < rpath3.length - 1|0; i++) {
+                        rpath3[i].y -= (cockpitHeight / 2.0) * (cockpitImpactRate / shield);
+                    }
+                    BABYLON.MeshBuilder.CreateRibbon(null, {pathArray: [rpath3, rpath1], instance: shieldMesh});
+                    */
+                }
+            }
         }
     };
 
 };
+SF.EnemyLasers.prototype.animate = function() {
+    this.sps.setParticles();
+};
+
 // Stars
 SF.Stars = function(gameScene) {
     this.starNb = gameScene.starNb;
@@ -800,9 +862,9 @@ SF.Impacts = function(gameScene) {
                 p.color.r = gameScene.explosionInitialColor.r - Math.random() * 0.1;
                 p.color.g = gameScene.explosionInitialColor.g - Math.random() * 0.1;
                 p.color.b = gameScene.explosionInitialColor.b;
-                p.color.a -= 0.05;
+                p.color.a -= 0.07;
                 // recycle explosion
-                if (p.scaling.x > 250.0) {         
+                if (p.color.a < 0.01) {         
                     p.isVisible = false;
                     p.position.z = gameScene.sightDistance;
                     p.color.copyFrom(impactInitialColor);
@@ -858,7 +920,7 @@ SF.GameScene = function(canvas, engine) {
     this.enemyFireLimit = 4.0 * this.sightDistance; // enemy doesn't fire under this z limit
     this.enemyLaserInitialColor = new BABYLON.Color4(0.8, 0.0, 0.0, 0.5);
     this.impactInitialColor = new BABYLON.Color4(0.6, 0.6, 1.0, 0.85); // as their names suggest it
-    this.explosionInitialColor = new BABYLON.Color4(1.0, 1.0, 0.0, 0.98);
+    this.explosionInitialColor = new BABYLON.Color4(1.0, 1.0, 0.0, 1.0);
     this.bboxpc = 0.75;                             // percentage of the enemy bbox size to check the laser hit against
     
     // members
@@ -946,6 +1008,10 @@ SF.GameScene = function(canvas, engine) {
     // Enemy creation
     this.enemies = new SF.Enemies(this);
 
+    // Enemy laser creation
+    this.enemyLasers = new SF.EnemyLasers(this);
+    light.excludedMeshes.push(this.enemyLasers.mesh);
+
     // Impact/Explosion creation
     this.impacts = new SF.Impacts(this);
     light.excludedMeshes.push(this.impacts.mesh);
@@ -958,6 +1024,7 @@ SF.GameScene = function(canvas, engine) {
         gameScene.weapons.animate();
         gameScene.shipLasers.animate();
         gameScene.enemies.animate();
+        gameScene.enemyLasers.animate();
         gameScene.impacts.animate();
     });
 
