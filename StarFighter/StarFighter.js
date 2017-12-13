@@ -11,7 +11,8 @@ var SF = {};
 SF.Assets = {
     flareURL: "assets/flarealpha.png",
     sightURL : "assets/viseur.png",
-    rustyURL: "assets/rusty.jpg"
+    rustyURL: "assets/rusty.jpg",
+    universeURL : "assets/stars1.jpg"
 };
 
 // Materials
@@ -22,6 +23,14 @@ SF.CreateMaterials = function(scene) {
     flare.hasAlpha = true;
     var sightTexture = new BABYLON.Texture(SF.Assets.sightURL, scene);
     var rustyTexture = new BABYLON.Texture(SF.Assets.rustyURL, scene);
+    var universeTexture = new BABYLON.Texture(SF.Assets.universeURL, scene);
+    universeTexture.uScale = 8.0;
+    universeTexture.vScale = universeTexture.uScale;
+    // Universe material
+    var univMat = new BABYLON.StandardMaterial("um", scene);
+    univMat.freeze();
+    univMat.emissiveTexture = universeTexture;
+    SF.Materials.universe = univMat;
     // Star material
     var starMat = new BABYLON.StandardMaterial("sm", scene);
     starMat.emissiveColor = BABYLON.Color3.White();
@@ -94,6 +103,22 @@ SF.CreateLights = function(scene) {
     explosionLight.intensity = 0.0;  
     SF.Lights.explosionLight = explosionLight;
 };
+
+// Universe
+SF.Universe = function(gameScene) {
+    this.gameScene = gameScene;
+    var scene = this.gameScene.scene;
+
+    var icosphere = BABYLON.MeshBuilder.CreateIcoSphere("ico", {radius: 5.0 * this.gameScene.distance, subdivisions: 24, sideOrientation: BABYLON.Mesh.BACKSIDE}, scene);
+    icosphere.material = SF.Materials.universe;
+    icosphere.alwaysSelectAsActiveMesh = true;
+    this.mesh = icosphere;
+
+};
+SF.Universe.prototype.animate = function() {
+    this.mesh.rotation.x += this.gameScene.ang.x * 0.01;
+    this.mesh.rotation.y += this.gameScene.ang.y * 0.01;
+}
 
 // Starship
 SF.Starship = function(gameScene) {
@@ -997,13 +1022,19 @@ SF.GameScene = function(canvas, engine) {
 
     // Material creation
     SF.CreateMaterials(scene);
- 
+
+    // Universe creation
+    this.universe = new SF.Universe(this);
+    light.excludedMeshes = [this.universe.mesh];
+    SF.Lights.pointLight.excludedMeshes = [this.universe.mesh];
+    SF.Lights.explosionLight.excludedMeshes = [this.universe.mesh];
+
     // Starship creation
     this.starship = new SF.Starship(this);
 
     // Weapon creation
     this.weapons = new SF.Weapons(this);
-    light.excludedMeshes = [this.weapons.sight];
+    light.excludedMeshes.push(this.weapons.sight);
 
     // Laser creation
     this.shipLasers = new SF.ShipLasers(this);
@@ -1012,7 +1043,7 @@ SF.GameScene = function(canvas, engine) {
 
     // Star creation
     this.stars = new SF.Stars(this);
-    light.excludedMeshes.push(this.stars.mesh);
+    //light.excludedMeshes.push(this.stars.mesh);
 
     // Enemy creation
     this.enemies = new SF.Enemies(this);
@@ -1031,6 +1062,7 @@ SF.GameScene = function(canvas, engine) {
             gameScene.setCamera();
             gameScene.getInputs();
             gameScene.stars.animate();
+            gameScene.universe.animate();
             gameScene.weapons.animate();
             gameScene.shipLasers.animate();
             gameScene.enemies.animate();
