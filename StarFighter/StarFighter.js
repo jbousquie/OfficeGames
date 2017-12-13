@@ -76,6 +76,7 @@ SF.CreateLights = function(scene) {
     var lightInitialIntensity = 0.80;
     light.intensity = lightInitialIntensity;
     SF.Lights.light = light;
+    SF.Lights.lightInitialIntensity = lightInitialIntensity;
 
     // Point light used for the lasers
     var pointLight = new BABYLON.PointLight('pointLight', V(0.0, 0.0, 0.0), scene);
@@ -138,43 +139,28 @@ SF.Starship = function(gameScene) {
     this.shield = this.maxShield; 
 };
 SF.Starship.prototype.resetShield = function() {
-    if (this.shield < 0) {
-        this.gameScene.alive = false;
-        if ( window.confirm("You're dead...\n\nSCORE = "+score+"\n\nRetry ?\n\n") ) {
-            this.shield = this.maxShield;
-            SF.Materials.shield.diffuseColor.r = 0.0;
-            SF.Materials.shield.diffuseColor.g = 1.0;
-            SF.Materials.shield.alpha = 0.5;
-            this.gameScene.score = 0|0;
-            for (var i = 0|0; i < this.initialRpath3.length; i++) {
-                this.rpath3[i].copyFrom(this.initialRpath3[i]);
-            }
-            BABYLON.MeshBuilder.CreateRibbon(null, {pathArray: this.pathArray, instance: this.shieldMesh} );
-            this.gameScene.alive = true;
-        }
-    } 
+    this.shield = this.maxShield;
+    SF.Materials.shield.diffuseColor.r = 0.0;
+    SF.Materials.shield.diffuseColor.g = 1.0;
+    SF.Materials.shield.alpha = 0.5;
+    for (var i = 0|0; i < this.initialRpath3.length; i++) {
+        this.rpath3[i].copyFrom(this.initialRpath3[i]);
+    }
+    BABYLON.MeshBuilder.CreateRibbon(null, {pathArray: this.pathArray, instance: this.shieldMesh} );
 };
 SF.Starship.prototype.checkLaserHit = function(laser) {
     if (laser.position.x < this.cockpitArea.x && laser.position.x > -this.cockpitArea.x && laser.position.y < this.cockpitArea.y && laser.position.y > -this.cockpitArea.y ) {
         var cockpitImpactRate = (Math.random() - 0.5) * 0.3;
-        /*
-        // shake camera
-        ouchX = true;
-        ouchY = true;
-        ouchZ = true;
-        camToLeft = false;
-        returnCamX = false;
-        returnCamY = false;
-        returnCamZ = false;
-        this.cockpitHeight = 0.14;
-        tmpCam.copyFromFloats(cockpitImpactRate, Math.random() * 0.1, -Math.random() * 0.1) ;
-        cockpitImpactRate = Math.abs(cockpitImpactRate);
-        if (tmpCam.x < 0.0) { camToLeft = true; }
-        light.diffuse.b = 0.0;
-        light.diffuse.g = 0.5;
-        light.intensity = 1.0;
-        */
+        this.gameScene.bumpCamera(cockpitImpactRate);
         this.updateShield(Math.abs(cockpitImpactRate));
+        if (this.shield < 0) {
+            this.gameScene.alive = false;
+            if ( window.confirm("You're dead...\n\nSCORE = "+this.gameScene.score+"\n\nRetry ?\n\n") ) {
+                this.resetShield();
+                this.gameScene.alive = true;
+                this.gameScene.score = 0|0;
+            }
+        }
     }
 };
 SF.Starship.prototype.shakeCockpit = function() {
@@ -932,7 +918,19 @@ SF.GameScene = function(canvas, engine) {
     this.impactInitialColor = new BABYLON.Color4(0.6, 0.6, 1.0, 0.85); // as their names suggest it
     this.explosionInitialColor = new BABYLON.Color4(1.0, 1.0, 0.0, 1.0);
     this.bboxpc = 0.75;                             // percentage of the enemy bbox size to check the laser hit against
-    
+
+    // camera behavior
+    this.ouchX = false;                  // camera shifted on X
+    this.ouchY = false;                  // camera shifted on Y
+    this.ouchZ = false;                  // camera shifted on Z
+    this.camToLeft = false;
+    this.tmpCam = V(0.0, 0.0, 0.0);
+    this.camShakeSpeed = 0.01;
+    this.camRestoreSpeed = 0.008;
+    this.returnCamX = false;
+    this.returnCamY = false;
+    this.returnCamZ = false;
+
     // members
     this.canvas = canvas;
     this.scene = null;
@@ -995,6 +993,7 @@ SF.GameScene = function(canvas, engine) {
     // Light creation
     SF.CreateLights(scene);
     var light = SF.Lights.light;
+    this.light = light;
 
     // Material creation
     SF.CreateMaterials(scene);
@@ -1028,14 +1027,16 @@ SF.GameScene = function(canvas, engine) {
 
     var gameScene = this;
     scene.registerBeforeRender(function(){
-        gameScene.setCamera();
-        gameScene.getInputs();
-        gameScene.stars.animate();
-        gameScene.weapons.animate();
-        gameScene.shipLasers.animate();
-        gameScene.enemies.animate();
-        gameScene.enemyLasers.animate();
-        gameScene.impacts.animate();
+        if (gameScene.alive) {
+            gameScene.setCamera();
+            gameScene.getInputs();
+            gameScene.stars.animate();
+            gameScene.weapons.animate();
+            gameScene.shipLasers.animate();
+            gameScene.enemies.animate();
+            gameScene.enemyLasers.animate();
+            gameScene.impacts.animate();
+        }
     });
 
 };
@@ -1044,8 +1045,79 @@ SF.GameScene.prototype.getInputs = function() {
 };
 SF.GameScene.prototype.setCamera = function() {
     this.aspectRatio = this.engine.getAspectRatio(this.camera);
-}
+    this.light.diffuse.b += 0.1;
+    this.light.diffuse.g += 0.1;
+    this.light.intensity -= 0.01;
+    if (this.light.diffuse.b > 1.0) { this.light.diffuse.b = 1.0; }
+    if (this.light.diffuse.g > 1.0) { this.light.diffuse.g = 1.0; }
+    if (this.light.intensity < SF.Lights.lightInitialIntensity) { this.light.intensity = SF.Lights.lightInitialIntensity; }
+    
+    if (this.ouchY) { 
+        if (this.camera.position.y < this.tmpCam.y && !this.returnCamY) {
+            this.camera.position.y += this.camShakeSpeed;
+        } else {
+            this.camera.position.y -= this.camRestoreSpeed; 
+            this.returnCamY = true;
+            if ( this.camera.position.y <= 0.0 ) { 
+                this.camera.position.y = 0.0; 
+                this.ouchY = false; 
+                this.returnCamY = false;
+            }
+        }
+    }
+    
+    if (this.ouchZ) { 
+        if (this.camera.position.z > this.tmpCam.z && !this.returnCamZ) {
+            this.camera.position.z -= this.camShakeSpeed;
+        } else {
+            this.camera.position.z += this.camRestoreSpeed;
+            this.returnCamZ = true;
+            if ( this.camera.position.z >= 0.0 ) { 
+                this.camera.position.z = 0.0; 
+                this.ouchZ = false; 
+                this.returnCamZ = false;
+            }
+        } 
+    } 
+     
+    if (this.ouchX) {  
+        if (this.camToLeft) {
+            if (this.camera.position.x > this.tmpCam.x && !this.returnCamX) {
+                this.camera.position.x -= this.camShakeSpeed;
+            } else {
+                this.camera.position.x += this.camRestoreSpeed;
+                this.returnCamX = true;
+            }
+        } else {
+            if (this.camera.position.x < this.tmpCam.x && !this.returnCamX) {
+                this.camera.position.x += this.camShakeSpeed;
+            } else {
+                this.camera.position.x -= this.camRestoreSpeed;
+                this.returnCamX = true;
+            }             
+        }
+        if (Math.abs(this.camera.position.x) < this.camRestoreSpeed && this.returnCamX) {
+            this.camera.position.x = 0.0;
+            this.ouchX = false;
+            this.returnCamX = false;
+        }
+    }           
 
+}
+SF.GameScene.prototype.bumpCamera = function(rate) {
+    this.tmpCam.copyFromFloats(rate, Math.random() * 0.1, -Math.random() * 0.1) ;
+    this.ouchX = true;
+    this.ouchY = true;
+    this.ouchZ = true;
+    this.camToLeft = false;
+    this.returnCamX = false;
+    this.returnCamY = false;
+    this.returnCamZ = false;
+    if (this.tmpCam.x < 0.0) { this.camToLeft = true; }
+    this.light.diffuse.b = 0.0;
+    this.light.diffuse.g = 0.5;
+    this.light.intensity = 1.0;
+};
 
 // Init
 var init = function(game) {
