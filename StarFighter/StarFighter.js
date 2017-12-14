@@ -4,15 +4,22 @@
 // Shortener function for new BABYLON.Vector3
 var V = function(x, y, z) { return new BABYLON.Vector3(+x, +y, +z); }; 
 
+// Random sign : +1 or -1
+var randomSign = function() {
+    return ((Math.random() - 0.5) < 0 ? -1 : 1);  
+};
+
 // StarFighter game object
 var SF = {};
 
 // Assets
+// credits : https://www.solarsystemscope.com/textures
 SF.Assets = {
     flareURL: "assets/flarealpha.png",
     sightURL : "assets/viseur.png",
     rustyURL: "assets/rusty.jpg",
-    universeURL : "assets/stars1.jpg"
+    universeURL: "assets/stars1.jpg",
+    planetURL: "assets/planetsheet.png"
 };
 
 // Materials
@@ -26,11 +33,19 @@ SF.CreateMaterials = function(scene) {
     var universeTexture = new BABYLON.Texture(SF.Assets.universeURL, scene);
     universeTexture.uScale = 8.0;
     universeTexture.vScale = universeTexture.uScale;
+    var planetTexture = new BABYLON.Texture(SF.Assets.planetURL, scene);
     // Universe material
     var univMat = new BABYLON.StandardMaterial("um", scene);
+    univMat.alpha = 0.6;
     univMat.freeze();
     univMat.emissiveTexture = universeTexture;
     SF.Materials.universe = univMat;
+    // Planet material
+    var planetMat = new BABYLON.StandardMaterial("um", scene);
+    planetMat.freeze();
+    planetMat.diffuseTexture = planetTexture;
+    planetMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+    SF.Materials.planets = planetMat;
     // Star material
     var starMat = new BABYLON.StandardMaterial("sm", scene);
     starMat.emissiveColor = BABYLON.Color3.White();
@@ -81,7 +96,7 @@ SF.CreateMaterials = function(scene) {
 // Lights
 SF.CreateLights = function(scene) {
     SF.Lights = {};
-    var light = new BABYLON.HemisphericLight('light1', V(0.0, 1.0, -0.75), scene);
+    var light = new BABYLON.HemisphericLight('light', V(0.0, 1.0, -0.75), scene);
     var lightInitialIntensity = 0.80;
     light.intensity = lightInitialIntensity;
     SF.Lights.light = light;
@@ -102,6 +117,10 @@ SF.CreateLights = function(scene) {
     SF.Lights.explLghtIntensity = 1.0;
     explosionLight.intensity = 0.0;  
     SF.Lights.explosionLight = explosionLight;
+
+    // Space light for the planets
+    var spaceLight = new BABYLON.HemisphericLight('light', V(randomSign() * Math.random(), Math.random(), -Math.random()), scene);
+    SF.Lights.spaceLight = spaceLight;
 };
 
 // Universe
@@ -109,7 +128,7 @@ SF.Universe = function(gameScene) {
     this.gameScene = gameScene;
     var scene = this.gameScene.scene;
 
-    var icosphere = BABYLON.MeshBuilder.CreateIcoSphere("ico", {radius: 5.0 * this.gameScene.distance, subdivisions: 24, sideOrientation: BABYLON.Mesh.BACKSIDE}, scene);
+    var icosphere = BABYLON.MeshBuilder.CreateIcoSphere("ico", {radius: 5.0 * this.gameScene.distance, subdivisions: 4, sideOrientation: BABYLON.Mesh.BACKSIDE}, scene);
     icosphere.material = SF.Materials.universe;
     icosphere.alwaysSelectAsActiveMesh = true;
     this.mesh = icosphere;
@@ -117,8 +136,47 @@ SF.Universe = function(gameScene) {
 };
 SF.Universe.prototype.animate = function() {
     this.mesh.rotation.x += this.gameScene.ang.x * 0.01;
-    this.mesh.rotation.y += this.gameScene.ang.y * 0.01;
-}
+    this.mesh.rotation.y -= this.gameScene.ang.y * 0.01;
+};
+
+// Planets
+SF.Planets = function(gameScene, planetNb) {
+    this.gameScene = gameScene;
+    var scene = this.gameScene.scene;
+    var minDistance = this.gameScene.distance * 0.60;
+
+    var planetPos = function(p, i ,s) {
+        p.position.x = randomSign() * (minDistance + Math.random() * 0.40);
+        p.position.y = randomSign() * (minDistance + Math.random() * 0.40);
+        p.position.z = randomSign() * (minDistance + Math.random() * 0.40);
+        p.rotation.y = randomSign() * 6.28 * Math.random();
+        p.rotation.z = randomSign() * 0.8 * Math.random();
+        p.scaling.x = Math.random() * 4.0;
+        p.scaling.y = p.scaling.x;
+        p.scaling.z = p.scaling.x;
+        p.color = new BABYLON.Color4(Math.random() * 0.5 + 0.5, Math.random() * 0.5 + 0.5, Math.random() * 0.5 + 0.5, 1.0);
+        var u = Math.floor(Math.random() * 2.0) * 0.5;
+        var v = Math.floor(Math.random() * 4.0) * 0.25;
+        p.uvs.x = u;
+        p.uvs.y = v;
+        p.uvs.z = u + 0.5;
+        p.uvs.w = v + 0.25;
+    };
+    var planetSPS = new BABYLON.SolidParticleSystem("plsps", scene, {updatable: false});
+    var planetModel = BABYLON.MeshBuilder.CreateSphere("plmdl", {diameter: 5.0}, scene);
+    planetSPS.addShape(planetModel, planetNb, {positionFunction: planetPos});
+    planetSPS.buildMesh();
+    planetModel.dispose();
+    planetSPS.isAlwaysVisible = true;
+    this.sps = planetSPS;
+    this.mesh = planetSPS.mesh;
+    this.mesh.material = SF.Materials.planets;
+    //this.mesh.material.emissiveColor = BABYLON.Color3.White();
+};
+SF.Planets.prototype.animate = function() {
+    this.mesh.rotation.x += this.gameScene.ang.x * 0.01;
+    this.mesh.rotation.y -= this.gameScene.ang.y * 0.01;
+};
 
 // Starship
 SF.Starship = function(gameScene) {
@@ -1001,11 +1059,13 @@ SF.GameScene = function(canvas, engine) {
     window.addEventListener('pointerdown', function(event) { updateInput(event, true); });
     window.addEventListener('pointerup', function(event)   { updateInput(event, false);});
 
-
     // BJS Scene
     var scene = new BABYLON.Scene(engine);
     scene.clearColor = BABYLON.Color3.Black();
     this.scene = scene;
+
+    //scene.onPointerObservable.add(function() { updateInput(BABYLON.PointerEventTypes.POINTERDOWN, true); }, BABYLON.PointerEventTypes.POINTERDOWN);
+    //scene.onPointerObservable.add(function() { updateInput(BABYLON.PointerEventTypes.POINTERUP, true); }, BABYLON.PointerEventTypes.POINTERUP);
     // Camera : fixed, looking toward +Z
     var camera = new BABYLON.TargetCamera("camera", V(0.0, 0.0, 0.0), scene);
     camera.direction = V(0.0, 0.0, 1.0);
@@ -1028,6 +1088,13 @@ SF.GameScene = function(canvas, engine) {
     light.excludedMeshes = [this.universe.mesh];
     SF.Lights.pointLight.excludedMeshes = [this.universe.mesh];
     SF.Lights.explosionLight.excludedMeshes = [this.universe.mesh];
+    SF.Lights.spaceLight.excludedMeshes = [this.universe.mesh];
+
+    // Planet creation
+    this.planets = new SF.Planets(this, 3);
+    light.excludedMeshes.push(this.planets.mesh);
+    SF.Lights.pointLight.excludedMeshes.push(this.planets.mesh);
+    SF.Lights.explosionLight.excludedMeshes.push(this.planets.mesh);
 
     // Starship creation
     this.starship = new SF.Starship(this);
@@ -1035,15 +1102,17 @@ SF.GameScene = function(canvas, engine) {
     // Weapon creation
     this.weapons = new SF.Weapons(this);
     light.excludedMeshes.push(this.weapons.sight);
+    SF.Lights.spaceLight.excludedMeshes.push(this.weapons.sight);
 
     // Laser creation
     this.shipLasers = new SF.ShipLasers(this);
     light.excludedMeshes.push(this.shipLasers.mesh);
     light.excludedMeshes.push(this.shipLasers.laserLightSPS.mesh);
+    SF.Lights.spaceLight.excludedMeshes.push(this.shipLasers.laserLightSPS.mesh);
 
     // Star creation
     this.stars = new SF.Stars(this);
-    //light.excludedMeshes.push(this.stars.mesh);
+    light.excludedMeshes.push(this.stars.mesh);
 
     // Enemy creation
     this.enemies = new SF.Enemies(this);
@@ -1051,10 +1120,12 @@ SF.GameScene = function(canvas, engine) {
     // Enemy laser creation
     this.enemyLasers = new SF.EnemyLasers(this);
     light.excludedMeshes.push(this.enemyLasers.mesh);
+    SF.Lights.spaceLight.excludedMeshes.push(this.enemyLasers.mesh);
 
     // Impact/Explosion creation
     this.impacts = new SF.Impacts(this);
     light.excludedMeshes.push(this.impacts.mesh);
+    SF.Lights.spaceLight.excludedMeshes.push(this.impacts.mesh);
 
     var gameScene = this;
     scene.registerBeforeRender(function(){
@@ -1063,6 +1134,7 @@ SF.GameScene = function(canvas, engine) {
             gameScene.getInputs();
             gameScene.stars.animate();
             gameScene.universe.animate();
+            gameScene.planets.animate();
             gameScene.weapons.animate();
             gameScene.shipLasers.animate();
             gameScene.enemies.animate();
