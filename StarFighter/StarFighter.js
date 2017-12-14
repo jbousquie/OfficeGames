@@ -81,7 +81,7 @@ SF.CreateMaterials = function(scene) {
     enMat.emissiveColor = new BABYLON.Color3(1.0, 1.0, 1.0);
     enMat.diffuseColor = new BABYLON.Color3(0.4, 1.0, 0.8);
     enMat.diffuseTexture = rustyTexture;
-    enMat.specularPower = 1024.0;
+    enMat.specularPower = 48.0;
     SF.Materials.enemy = enMat;
     // Impact and explosion material
     var impactMat = new BABYLON.StandardMaterial("im", scene);
@@ -337,7 +337,7 @@ SF.Enemy = function(id, model, gameScene) {
 
     // enemy SPS
     var enemySPS = new BABYLON.SolidParticleSystem('esps' + this.id, scene);              // create a SPS per enemy
-    enemySPS.digest(this.model, {facetNb: 1|0, delta: 6|0});                                                // digest the enemy model
+    enemySPS.digest(this.model, {facetNb: 4|0, delta: 6|0});                                                // digest the enemy model
     enemySPS.buildMesh();
     enemySPS.mesh.material = SF.Materials.enemy;
     enemySPS.mesh.hasVertexAlpha = false;
@@ -364,10 +364,10 @@ SF.Enemy = function(id, model, gameScene) {
             p.rotation.x += p.velocity.z * enemy.randAng.x;
             p.rotation.y += p.velocity.x * enemy.randAng.y;
             p.rotation.z += p.velocity.y * enemy.randAng.z;
-            p.color.a -= 0.01;
+            p.color.a -= 0.0001;
             SF.Lights.explosionLight.intensity -= 0.001;
             if (SF.Lights.explosionLight.intensity < 0.001) { SF.Lights.explosionLight.intensity = 0.0; }
-            if (p.color.a < 0.01) {
+            if (p.color.a < 0.5) {
                 enemy.mustRebuild = true;
             }
         }
@@ -972,11 +972,12 @@ SF.GameScene = function(canvas, engine) {
 
     // Global parameters
 
-        // stars
+        // stars and planets
     this.starNb = 150|0;                            // star total number in the pool
     this.distance = 60.0;                           // star emitter distance from the screen
     this.starSpeed = 1.0;                           // star speed on Z axis
     this.starEmitterSize = this.distance / 1.2      // size width of the particle emitter square surface
+    this.maxPlanetNb = 5;                           // maximum number of planets
         // sight, laser, weapons and cockpit
     this.sightDistance = 5.0;                       // sight distance     
     this.canLength = 0.4;                           // cannon length
@@ -1091,7 +1092,8 @@ SF.GameScene = function(canvas, engine) {
     SF.Lights.spaceLight.excludedMeshes = [this.universe.mesh];
 
     // Planet creation
-    this.planets = new SF.Planets(this, 3);
+    var planetNb = 1 + Math.floor(this.maxPlanetNb * Math.random());
+    this.planets = new SF.Planets(this, planetNb);
     light.excludedMeshes.push(this.planets.mesh);
     SF.Lights.pointLight.excludedMeshes.push(this.planets.mesh);
     SF.Lights.explosionLight.excludedMeshes.push(this.planets.mesh);
@@ -1101,7 +1103,7 @@ SF.GameScene = function(canvas, engine) {
 
     // Weapon creation
     this.weapons = new SF.Weapons(this);
-    light.excludedMeshes.push(this.weapons.sight);
+    //light.excludedMeshes.push(this.weapons.sight);
     SF.Lights.spaceLight.excludedMeshes.push(this.weapons.sight);
 
     // Laser creation
