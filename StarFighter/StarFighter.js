@@ -34,6 +34,8 @@ SF.CreateMaterials = function(scene) {
     var rustyTexture = new BABYLON.Texture(SF.Assets.rustyURL, scene);
     var enemyTexture1 = new BABYLON.Texture(SF.Assets.enemyURL1, scene);
     var enemyTexture2 = new BABYLON.Texture(SF.Assets.enemyURL2, scene);
+    enemyTexture2.uScale = 3.0;
+    enemyTexture2.vScale = enemyTexture2.uScale;
     var universeTexture = new BABYLON.Texture(SF.Assets.universeURL, scene);
     universeTexture.uScale = 8.0;
     universeTexture.vScale = universeTexture.uScale;
@@ -109,6 +111,7 @@ SF.CreateLights = function(scene) {
     var light = new BABYLON.HemisphericLight('light', V(0.0, 1.0, -0.75), scene);
     var lightInitialIntensity = 0.80;
     light.intensity = lightInitialIntensity;
+    light.shadowEnabled = false;
     SF.Lights.light = light;
     SF.Lights.lightInitialIntensity = lightInitialIntensity;
 
@@ -117,6 +120,7 @@ SF.CreateLights = function(scene) {
     pointLight.diffuse = new BABYLON.Color3(0.0, 0.0, 1.0);
     pointLight.specular = new BABYLON.Color3(0.5, 0.5, 1);
     pointLight.intensity = 0.0;
+    pointLight.shadowEnabled = false;
     SF.Lights.pointLight = pointLight;
     SF.Lights.pointLightMaxIntensity = 0.6;
 
@@ -124,12 +128,14 @@ SF.CreateLights = function(scene) {
     var explosionLight = new BABYLON.PointLight('explosionLight', V(0.0, 0.0, 0.0), scene);
     explosionLight.diffuse = new BABYLON.Color3(1.0, 1.0, 0.6);
     explosionLight.specular = new BABYLON.Color3(1.0, 1.0, 0.8);
+    explosionLight.shadowEnabled = false;
     SF.Lights.explLghtIntensity = 1.0;
     explosionLight.intensity = 0.0;  
     SF.Lights.explosionLight = explosionLight;
 
     // Space light for the planets
     var spaceLight = new BABYLON.HemisphericLight('light', V(randomSign() * Math.random(), Math.random(), -Math.random()), scene);
+    spaceLight.shadowEnabled = false;
     SF.Lights.spaceLight = spaceLight;
 };
 
@@ -385,7 +391,10 @@ SF.Enemy = function(id, model, gameScene) {
             p.rotation.z += p.velocity.y * enemy.randAng.z;
             p.color.a -= 0.01;
             SF.Lights.explosionLight.intensity -= 0.001;
-            if (SF.Lights.explosionLight.intensity < 0.001) { SF.Lights.explosionLight.intensity = 0.0; }
+            if (SF.Lights.explosionLight.intensity < 0.001) { 
+                SF.Lights.explosionLight.intensity = 0.0; 
+                //SF.Lights.explosionLight.setEnabled(false);
+            }
             if (p.color.a < 0.5) {
                 enemy.mustRebuild = true;
             }
@@ -451,6 +460,7 @@ SF.Enemy.prototype.explode = function(impact) {
     impact.scaling.x = 60.0;
     impact.position.copyFrom(this.mesh.position);
     this.gameScene.impacts.explosions[impact.idx] = true;
+    //SF.Lights.explosionLight.setEnabled(true);
     SF.Lights.explosionLight.position.copyFrom(this.mesh.position);
     SF.Lights.explosionLight.intensity = SF.Lights.explLghtIntensity;
     this.gameScene.score += 100|0;
