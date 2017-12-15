@@ -143,7 +143,7 @@ SF.Universe.prototype.animate = function() {
 SF.Planets = function(gameScene, planetNb) {
     this.gameScene = gameScene;
     var scene = this.gameScene.scene;
-    var minDistance = this.gameScene.distance * 0.60;
+    var minDistance = this.gameScene.distance * 1.5;
 
     var planetPos = function(p, i ,s) {
         p.position.x = randomSign() * (minDistance + Math.random() * 0.40);
@@ -151,7 +151,7 @@ SF.Planets = function(gameScene, planetNb) {
         p.position.z = randomSign() * (minDistance + Math.random() * 0.40);
         p.rotation.y = randomSign() * 6.28 * Math.random();
         p.rotation.z = randomSign() * 0.8 * Math.random();
-        p.scaling.x = Math.random() * 4.0;
+        p.scaling.x = Math.random() * 6.0;
         p.scaling.y = p.scaling.x;
         p.scaling.z = p.scaling.x;
         p.color = new BABYLON.Color4(Math.random() * 0.5 + 0.5, Math.random() * 0.5 + 0.5, Math.random() * 0.5 + 0.5, 1.0);
@@ -163,7 +163,7 @@ SF.Planets = function(gameScene, planetNb) {
         p.uvs.w = v + 0.25;
     };
     var planetSPS = new BABYLON.SolidParticleSystem("plsps", scene, {updatable: false});
-    var planetModel = BABYLON.MeshBuilder.CreateSphere("plmdl", {diameter: 5.0}, scene);
+    var planetModel = BABYLON.MeshBuilder.CreateSphere("plmdl", {diameter: 10.0, segments: 24}, scene);
     planetSPS.addShape(planetModel, planetNb, {positionFunction: planetPos});
     planetSPS.buildMesh();
     planetModel.dispose();
@@ -176,6 +176,11 @@ SF.Planets = function(gameScene, planetNb) {
 SF.Planets.prototype.animate = function() {
     this.mesh.rotation.x += this.gameScene.ang.x * 0.01;
     this.mesh.rotation.y -= this.gameScene.ang.y * 0.01;
+    BABYLON.Quaternion.RotationYawPitchRollToRef(this.mesh.rotation.y, this.mesh.rotation.x, 0.0, this.gameScene.quaternion);
+    this.gameScene.quaternion.toRotationMatrix(this.gameScene.rotMatrix);
+    
+    BABYLON.Vector3.TransformNormalToRef(this.gameScene.initialSpaceLightDirection, this.gameScene.rotMatrix, SF.Lights.spaceLight.direction);
+
 };
 
 // Starship
@@ -333,11 +338,12 @@ SF.Enemy = function(id, model, gameScene) {
     this.randAng = V(Math.random(), Math.random(), Math.random());      // random correction for enemy particle rotations and velocities
     this.initialParticlePositions = [];                                 // initial SPS particle positions computed with digest()
     this.enemyExplosionVelocity = this.gameScene.enemyExplosionVelocity;
+    this.initialAlpha = 1.3;
     var scene = this.gameScene.scene;
 
     // enemy SPS
     var enemySPS = new BABYLON.SolidParticleSystem('esps' + this.id, scene);              // create a SPS per enemy
-    enemySPS.digest(this.model, {facetNb: 4|0, delta: 6|0});                                                // digest the enemy model
+    enemySPS.digest(this.model, {facetNb: 12|0, delta: 10|0});                                                // digest the enemy model
     enemySPS.buildMesh();
     enemySPS.mesh.material = SF.Materials.enemy;
     enemySPS.mesh.hasVertexAlpha = false;
@@ -352,6 +358,7 @@ SF.Enemy = function(id, model, gameScene) {
         curPart.velocity.scaleInPlace(this.enemyExplosionVelocity);
         curPart.uvs.z = 0.20;                                               // let's do a different render with the same texture as the cockpit one
         curPart.uvs.w = 0.08;
+        curPart.color.a = this.initialAlpha;
     }
     enemySPS.setParticles();                                                // set the particle once at their computed positions
     enemySPS.refreshVisibleSize();                                          // compute the bounding boxes
@@ -359,12 +366,14 @@ SF.Enemy = function(id, model, gameScene) {
     var enemy = this;
     enemySPS.updateParticle = function(p) {
         if (enemy.explosion) {
-            enemy.mesh.hasVertexAlpha = true;
+            if (p.color.a < 1.0) {
+                enemy.mesh.hasVertexAlpha = true;
+            }
             p.position.addInPlace(p.velocity);
             p.rotation.x += p.velocity.z * enemy.randAng.x;
             p.rotation.y += p.velocity.x * enemy.randAng.y;
             p.rotation.z += p.velocity.y * enemy.randAng.z;
-            p.color.a -= 0.0001;
+            p.color.a -= 0.01;
             SF.Lights.explosionLight.intensity -= 0.001;
             if (SF.Lights.explosionLight.intensity < 0.001) { SF.Lights.explosionLight.intensity = 0.0; }
             if (p.color.a < 0.5) {
@@ -443,7 +452,7 @@ SF.Enemy.prototype.rebuild = function() {
     this.shield = this.maxShield;
     for (var ip = 0|0; ip < this.sps.nbParticles; ip++) {
         this.sps.particles[ip].position.copyFrom(this.initialParticlePositions[ip]);
-        this.sps.particles[ip].color.a = 1.0;
+        this.sps.particles[ip].color.a = this.initialAlpha;
         this.sps.particles[ip].rotation.x = 0.0;
         this.sps.particles[ip].rotation.y = 0.0;
         this.sps.particles[ip].rotation.z = 0.0;
@@ -489,7 +498,6 @@ SF.Enemies.prototype.animate = function() {
     for (var e = 0|0; e < this.enemyNb; e++) {
         var en = this.pool[e];
         if (en.explosion) {             // if currently exploding
-            en.mesh.hasVertexAlpha = true;
             if (en.mustRebuild) {       // if explosion just finished, then rebuild and reset the Enemy
                 en.rebuild();
                 en.randAng.multiplyByFloats(Math.random(), Math.random(), Math.random());
@@ -1030,6 +1038,7 @@ SF.GameScene = function(canvas, engine) {
     this.lightDistance = this.distance * 0.66;      // distance from where the laser lights are emitted
     this.ballFovCorrection = 0.0;                   // FOV correction for the balls in the distance
     this.rotMatrix = BABYLON.Matrix.Zero();                              // rotation matrix
+    this.quaternion = BABYLON.Quaternion.Zero();
     this.ang = BABYLON.Vector2.Zero();                                                     // rotation angle around Y and X
     this.moderation = 6.0;                                               // moderator for max angle computation : +/- PI/2 / moderation 
     this.pointerDistance = BABYLON.Vector2.Zero()                        // pointer x and y distance to the canvas center
@@ -1080,6 +1089,7 @@ SF.GameScene = function(canvas, engine) {
     SF.CreateLights(scene);
     var light = SF.Lights.light;
     this.light = light;
+    this.initialSpaceLightDirection = SF.Lights.spaceLight.direction.clone();
 
     // Material creation
     SF.CreateMaterials(scene);

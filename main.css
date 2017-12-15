@@ -1,0 +1,17 @@
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    background-color: lightgray;
+}
+h1 {
+    text-align: center
+}
+.thumbnailTitle {
+    text-align: center
+}
+.thumbnail {
+    width: 320px;
+}
+.image {
+    width: 320px;
+    height: auto;
+}
