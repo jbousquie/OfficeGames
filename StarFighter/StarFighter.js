@@ -1054,7 +1054,6 @@ SF.GameScene = function(canvas, engine) {
         CTRL: 17|0,
         SHIFT: 16|0
     };
-
     this.pointer = {left: false};
     var keyboard = this.keyboard;                                       // vars for closure
     var pointer = this.pointer;
@@ -1064,18 +1063,17 @@ SF.GameScene = function(canvas, engine) {
         if (event.keyCode == keys.SHIFT) { keyboard[keys.SHIFT] = boolVal; }
         if (event.button === 0) { pointer.left = boolVal; }
     }    
-    window.addEventListener('keydown', function(event) { updateInput(event, true); });
-    window.addEventListener('keyup', function(event)   { updateInput(event, false);});
-    window.addEventListener('pointerdown', function(event) { updateInput(event, true); });
-    window.addEventListener('pointerup', function(event)   { updateInput(event, false);});
 
     // BJS Scene
     var scene = new BABYLON.Scene(engine);
     scene.clearColor = BABYLON.Color3.Black();
     this.scene = scene;
 
-    //scene.onPointerObservable.add(function() { updateInput(BABYLON.PointerEventTypes.POINTERDOWN, true); }, BABYLON.PointerEventTypes.POINTERDOWN);
-    //scene.onPointerObservable.add(function() { updateInput(BABYLON.PointerEventTypes.POINTERUP, true); }, BABYLON.PointerEventTypes.POINTERUP);
+    // Event registering
+    scene.onKeyboardObservable.add(function(eventData) { updateInput(eventData.event, true); }, BABYLON.KeyboardEventTypes.KEYDOWN);
+    scene.onKeyboardObservable.add(function(eventData) { updateInput(eventData.event, false); }, BABYLON.KeyboardEventTypes.KEYUP);
+    scene.onPointerObservable.add(function(eventData) { updateInput(eventData.event, true); }, BABYLON.PointerEventTypes.POINTERDOWN);
+    scene.onPointerObservable.add(function(eventData) { updateInput(eventData.event, false); }, BABYLON.PointerEventTypes.POINTERUP);
     // Camera : fixed, looking toward +Z
     var camera = new BABYLON.TargetCamera("camera", V(0.0, 0.0, 0.0), scene);
     camera.direction = V(0.0, 0.0, 1.0);
