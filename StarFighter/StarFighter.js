@@ -1113,7 +1113,6 @@ SF.GameScene = function(canvas, engine) {
 
     // Weapon creation
     this.weapons = new SF.Weapons(this);
-    //light.excludedMeshes.push(this.weapons.sight);
     SF.Lights.spaceLight.excludedMeshes.push(this.weapons.sight);
 
     // Laser creation
@@ -1125,6 +1124,7 @@ SF.GameScene = function(canvas, engine) {
     // Star creation
     this.stars = new SF.Stars(this);
     light.excludedMeshes.push(this.stars.mesh);
+    SF.Lights.spaceLight.excludedMeshes.push(this.stars.mesh);
 
     // Enemy creation
     this.enemies = new SF.Enemies(this);
