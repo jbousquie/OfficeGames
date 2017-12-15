@@ -19,7 +19,9 @@ SF.Assets = {
     sightURL : "assets/viseur.png",
     rustyURL: "assets/rusty.jpg",
     universeURL: "assets/stars1.jpg",
-    planetURL: "assets/planetsheet.png"
+    planetURL: "assets/planetsheet.png",
+    enemyURL1: "assets/enemy.jpg",
+    enemyURL2: "assets/enemy3.jpg"
 };
 
 // Materials
@@ -30,6 +32,8 @@ SF.CreateMaterials = function(scene) {
     flare.hasAlpha = true;
     var sightTexture = new BABYLON.Texture(SF.Assets.sightURL, scene);
     var rustyTexture = new BABYLON.Texture(SF.Assets.rustyURL, scene);
+    var enemyTexture1 = new BABYLON.Texture(SF.Assets.enemyURL1, scene);
+    var enemyTexture2 = new BABYLON.Texture(SF.Assets.enemyURL2, scene);
     var universeTexture = new BABYLON.Texture(SF.Assets.universeURL, scene);
     universeTexture.uScale = 8.0;
     universeTexture.vScale = universeTexture.uScale;
@@ -77,12 +81,18 @@ SF.CreateMaterials = function(scene) {
     laserMat.freeze();
     SF.Materials.laser = laserMat;
     // Enemy material
-    var enMat = new BABYLON.StandardMaterial("em", scene);
-    enMat.emissiveColor = new BABYLON.Color3(1.0, 1.0, 1.0);
-    enMat.diffuseColor = new BABYLON.Color3(0.4, 1.0, 0.8);
-    enMat.diffuseTexture = rustyTexture;
-    enMat.specularPower = 48.0;
-    SF.Materials.enemy = enMat;
+    var enMat1 = new BABYLON.StandardMaterial("em1", scene);
+    enMat1.emissiveColor = new BABYLON.Color3(1.0, 1.0, 1.0);
+    //enMat1.diffuseColor = new BABYLON.Color3(0.4, 1.0, 0.8);
+    enMat1.diffuseTexture = enemyTexture1;
+    enMat1.specularPower = 48.0;
+    SF.Materials.enemy1 = enMat1;
+    var enMat2 = new BABYLON.StandardMaterial("em2", scene);
+    enMat2.emissiveColor = new BABYLON.Color3(1.0, 1.0, 1.0);
+    //enMat2.diffuseColor = new BABYLON.Color3(0.4, 1.0, 0.8);
+    enMat2.diffuseTexture = enemyTexture2;
+    enMat2.specularPower = 48.0;
+    SF.Materials.enemy2 = enMat2;
     // Impact and explosion material
     var impactMat = new BABYLON.StandardMaterial("im", scene);
     impactMat.emissiveColor = BABYLON.Color3.White();
@@ -345,7 +355,7 @@ SF.Enemy = function(id, model, gameScene) {
     var enemySPS = new BABYLON.SolidParticleSystem('esps' + this.id, scene);              // create a SPS per enemy
     enemySPS.digest(this.model, {facetNb: 12|0, delta: 10|0});                                                // digest the enemy model
     enemySPS.buildMesh();
-    enemySPS.mesh.material = SF.Materials.enemy;
+    enemySPS.mesh.material = (Math.random() < 0.5) ? SF.Materials.enemy1 : SF.Materials.enemy2;
     enemySPS.mesh.hasVertexAlpha = false;
     this.sps = enemySPS;                                                             // Enemy SPS
     this.mesh = enemySPS.mesh;  
