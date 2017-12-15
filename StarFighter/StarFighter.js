@@ -205,10 +205,18 @@ SF.Starship = function(gameScene) {
     this.gameScene = gameScene;
     this.cockpitArea = this.gameScene.cockpitArea;
     // Cockpit : two tubes and one ribbon merged together
+    var parabol = [];
+    for (var i = 0; i <= 40; i++) {
+        var x = -1.0 + i / 20;
+        var y = - x * x * x * x  * 1.5 + 0.8;
+        var z = 2.0 + y;
+        parabol.push(V(x, y, z));
+    }
     var path1 = [V(-1.5, 0.8, 0.0), V(-0.5, -0.8, 3.0)];
     var path2 = [V(1.5, 0.8, 0.0), V(0.5, -0.8, 3.0)];
     var tube1 = BABYLON.MeshBuilder.CreateTube('t1', {path: path1, radius: 0.03}, scene); 
     var tube2 = BABYLON.MeshBuilder.CreateTube('t2', {path: path2, radius: 0.03}, scene);
+    var tube3 = BABYLON.MeshBuilder.CreateTube('t3', {path: parabol, radius: 0.03}, scene);
     this.rpath1 = [];
     this.rpath2 = [];
     this.rpath3 = [];
@@ -226,7 +234,7 @@ SF.Starship = function(gameScene) {
     this.initialRpath3[0|0].y = this.rpath3[0|0].y;
     this.initialRpath3[10|0].y = this.rpath1[10|0].y;
     var rib = BABYLON.MeshBuilder.CreateRibbon('rb', { pathArray: [this.rpath1, this.rpath2] }, scene);
-    this.cockpit = BABYLON.Mesh.MergeMeshes([tube1, tube2, rib], true, true);
+    this.cockpit = BABYLON.Mesh.MergeMeshes([tube3, tube1, tube2, rib], true, true);
     this.cockpit.alwaysSelectAsActiveMesh = true;                            // the cockpit is always in the frustum
     this.cockpit.material = SF.Materials.ship;
     this.cockpit.freezeWorldMatrix();                                        // and never moves
