@@ -375,6 +375,11 @@ SF.Enemy = function(id, model, gameScene) {
         curPart.uvs.z = 0.20;                                               // let's do a different render with the same texture as the cockpit one
         curPart.uvs.w = 0.08;
         curPart.color.a = this.initialAlpha;
+        if (curPart._ind < 300) {     // nb of cockpit indices
+            curPart.color.r = 0.0;
+            curPart.color.g = (Math.random() < 0.5) ? 0.0 : 0.3;
+            curPart.color.b = (Math.random() < 0.5) ? 0.0 : 0.3;
+        }
     }
     enemySPS.setParticles();                                                // set the particle once at their computed positions
     enemySPS.refreshVisibleSize();                                          // compute the bounding boxes
@@ -493,12 +498,14 @@ SF.Enemies = function(gameScene) {
     var disc2 = BABYLON.MeshBuilder.CreateCylinder('', { height: 0.1, tessellation: 16|0, diameter: 3.2 }, scene);
     var cyl = BABYLON.MeshBuilder.CreateCylinder('', { diameter: 0.5, height: 4.0, subdivisions: 2|0 }, scene);
     var sph = BABYLON.MeshBuilder.CreateSphere('', { diameter: 2.0, segments: 4|0}, scene);
+    var cockpit = BABYLON.MeshBuilder.CreateSphere('', {segments: 3|0, diameterX: 1.0, diameterY: 1.0, diameterZ: 0.2}, scene);
     cyl.rotation.z = this.gameScene.halfPI;
     disc1.rotation.z = this.gameScene.halfPI;      
     disc2.rotation.z = -this.gameScene.halfPI;
     disc1.position.x = 2.0;
     disc2.position.x = -2.0;        
-    var enemyModel = BABYLON.Mesh.MergeMeshes([cyl, sph, disc1, disc2], true, true);
+    cockpit.position.z = -1.0;
+    var enemyModel = BABYLON.Mesh.MergeMeshes([cockpit, cyl, sph, disc1, disc2], true, true);
 
     for (var e = 0; e < this.enemyNb; e++) {  
         this.pool[e] = new SF.Enemy(e, enemyModel, this.gameScene);
