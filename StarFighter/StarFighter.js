@@ -23,7 +23,8 @@ SF.Assets = {
     planetURL: "assets/planetsheet.png",
     enemyURL1: "assets/enemy.jpg",
     enemyURL2: "assets/enemy3.jpg",
-    enemyNormalURL1: "assets/enemyNormal.png"
+    enemyNormalURL1: "assets/enemyNormal.png",
+    enemyNormalURL3: "assets/enemyNormal3.png"
 };
 
 // Materials
@@ -38,8 +39,11 @@ SF.CreateMaterials = function(scene) {
     var enemyTexture1 = new BABYLON.Texture(SF.Assets.enemyURL1, scene);
     var enemyTexture2 = new BABYLON.Texture(SF.Assets.enemyURL2, scene);
     var enemyBumpTexture1 = new BABYLON.Texture(SF.Assets.enemyNormalURL1, scene);
+    var enemyBumpTexture2 = new BABYLON.Texture(SF.Assets.enemyNormalURL3, scene);
     enemyTexture2.uScale = 3.0;
     enemyTexture2.vScale = enemyTexture2.uScale;
+    enemyBumpTexture2.uScale = enemyTexture2.uScale;
+    enemyBumpTexture2.vScale = enemyTexture2.uScale;
     var universeTexture = new BABYLON.Texture(SF.Assets.universeURL, scene);
     universeTexture.uScale = 8.0;
     universeTexture.vScale = universeTexture.uScale;
@@ -99,6 +103,7 @@ SF.CreateMaterials = function(scene) {
     enMat2.emissiveColor = new BABYLON.Color3(1.0, 1.0, 1.0);
     //enMat2.diffuseColor = new BABYLON.Color3(0.4, 1.0, 0.8);
     enMat2.diffuseTexture = enemyTexture2;
+    enMat2.bumpTexture = enemyBumpTexture2;
     enMat2.specularPower = 48.0;
     SF.Materials.enemy2 = enMat2;
     // Impact and explosion material
@@ -145,6 +150,24 @@ SF.CreateLights = function(scene) {
     SF.Lights.spaceLight = spaceLight;
 };
 
+// GUI
+SF.GUI = function(scene) {
+    var adt = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI('UI', true, scene);
+    adt.idealWitdh = 600;
+    adt.renderAtIdealSize = true;
+    var scoreText = new BABYLON.GUI.TextBlock();
+    scoreText.text = "000000";
+    scoreText.color = "white";
+    scoreText.fontSize = 24;
+    scoreText.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+    adt.addControl(scoreText);
+    this.score = scoreText;
+};
+SF.GUI.prototype.pad = function(value, nb) {
+    var s = String(value);
+    while (s.length < (nb || 2)) { s = "0" + s;}
+    return s;
+}
 // Universe
 SF.Universe = function(gameScene) {
     this.gameScene = gameScene;
@@ -277,6 +300,7 @@ SF.Starship.prototype.checkLaserHit = function(laser) {
                 this.resetShield();
                 this.gameScene.alive = true;
                 this.gameScene.score = 0|0;
+                this.gameScene.gui.score.text = this.gameScene.gui.pad(this.gameScene.score, 6);
             }
         }
     }
@@ -483,6 +507,7 @@ SF.Enemy.prototype.explode = function(impact) {
     SF.Lights.explosionLight.position.copyFrom(this.mesh.position);
     SF.Lights.explosionLight.intensity = SF.Lights.explLghtIntensity;
     this.gameScene.score += 100|0;
+    this.gameScene.gui.score.text = this.gameScene.gui.pad(this.gameScene.score, 6);
 };
 SF.Enemy.prototype.rebuild = function() {
     this.explosion = false;
@@ -1124,6 +1149,9 @@ SF.GameScene = function(canvas, engine) {
     this.aspectRatio = engine.getAspectRatio(camera);
     this.ballFovCorrection = this.cameraFov * this.lightDistance; 
 
+    // GUI creation
+    this.gui =  new SF.GUI(scene);
+
     // Light creation
     SF.CreateLights(scene);
     var light = SF.Lights.light;
@@ -1286,7 +1314,8 @@ var init = function(game) {
     
     // tmp stat log to get perf feedbacks
     var logStat = true;
-    var fLimit = 900;
+    var fLimit = 1200;
+    var fStart = 240;
     var curFrame = 1;
     var frames = 0;
     var timeStart = 0;
@@ -1304,15 +1333,17 @@ var init = function(game) {
         console.log("stats logged ... thank you.")
     };
 
-    timeStart = performance.now();
     engine.runRenderLoop(function(){
       scene.render();
+      curFrame++;
       if (logStat) {
-          curFrame++;
+          if (curFrame == fStart) {
+            timeStart = performance.now();
+          }
           if (curFrame > fLimit) {
               timeEnd = performance.now();
               logStat = false;
-              logStatXHR(logURL, timeStart, timeEnd, fLimit, serverCode);
+              logStatXHR(logURL, timeStart, timeEnd, fLimit - fStart, serverCode);
           }
       }
     });
