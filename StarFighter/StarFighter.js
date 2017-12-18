@@ -538,13 +538,15 @@ SF.Enemies = function(gameScene) {
     var cyl = BABYLON.MeshBuilder.CreateCylinder('', { diameter: 0.5, height: 4.0, subdivisions: 2|0 }, scene);
     var sph = BABYLON.MeshBuilder.CreateSphere('', { diameter: 2.0, segments: 4|0}, scene);
     var cockpit = BABYLON.MeshBuilder.CreateSphere('', {segments: 3|0, diameterX: 1.0, diameterY: 1.0, diameterZ: 0.2}, scene);
+    var insideCyl = BABYLON.MeshBuilder.CreateCylinder('', {height: 1.2, diameterBottom: 0.6, diameterTop: 0.8, tessellation: 16, subdivisions: 1}, scene);
+    var insidePol1 = BABYLON.MeshBuilder.CreatePolyhedron('', {flat: true, size: 0.4}, scene);
     cyl.rotation.z = this.gameScene.halfPI;
     disc1.rotation.z = this.gameScene.halfPI;      
     disc2.rotation.z = -this.gameScene.halfPI;
     disc1.position.x = 2.0;
     disc2.position.x = -2.0;        
     cockpit.position.z = -1.0;
-    var enemyModel = BABYLON.Mesh.MergeMeshes([cockpit, cyl, sph, disc1, disc2], true, true);
+    var enemyModel = BABYLON.Mesh.MergeMeshes([cockpit, cyl, sph, disc1, disc2, insideCyl, insidePol1, insideCyl, insidePol1, insideCyl, insideCyl, insideCyl], true, true);
 
     for (var e = 0; e < this.enemyNb; e++) {  
         this.pool[e] = new SF.Enemy(e, enemyModel, this.gameScene);
