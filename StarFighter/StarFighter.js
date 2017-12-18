@@ -18,10 +18,12 @@ SF.Assets = {
     flareURL: "assets/flarealpha.png",
     sightURL : "assets/viseur.png",
     rustyURL: "assets/rusty.jpg",
+    rustyNormalURL: "assets/rustyNormal.png",
     universeURL: "assets/stars1.jpg",
     planetURL: "assets/planetsheet.png",
     enemyURL1: "assets/enemy.jpg",
-    enemyURL2: "assets/enemy3.jpg"
+    enemyURL2: "assets/enemy3.jpg",
+    enemyNormalURL1: "assets/enemyNormal.png"
 };
 
 // Materials
@@ -32,8 +34,10 @@ SF.CreateMaterials = function(scene) {
     flare.hasAlpha = true;
     var sightTexture = new BABYLON.Texture(SF.Assets.sightURL, scene);
     var rustyTexture = new BABYLON.Texture(SF.Assets.rustyURL, scene);
+    var rustyBumpTexture = new BABYLON.Texture(SF.Assets.rustyNormalURL, scene);
     var enemyTexture1 = new BABYLON.Texture(SF.Assets.enemyURL1, scene);
     var enemyTexture2 = new BABYLON.Texture(SF.Assets.enemyURL2, scene);
+    var enemyBumpTexture1 = new BABYLON.Texture(SF.Assets.enemyNormalURL1, scene);
     enemyTexture2.uScale = 3.0;
     enemyTexture2.vScale = enemyTexture2.uScale;
     var universeTexture = new BABYLON.Texture(SF.Assets.universeURL, scene);
@@ -71,6 +75,7 @@ SF.CreateMaterials = function(scene) {
     // Starship material : cannons & cockpit
     var canMat = new BABYLON.StandardMaterial("cm", scene);
     canMat.diffuseTexture = rustyTexture;
+    canMat.bumpTexture = rustyBumpTexture;
     SF.Materials.ship = canMat;
     // Shield material
     var shieldMat = new BABYLON.StandardMaterial("shm", scene);
@@ -87,6 +92,7 @@ SF.CreateMaterials = function(scene) {
     enMat1.emissiveColor = new BABYLON.Color3(1.0, 1.0, 1.0);
     //enMat1.diffuseColor = new BABYLON.Color3(0.4, 1.0, 0.8);
     enMat1.diffuseTexture = enemyTexture1;
+    enMat1.bumpTexture = enemyBumpTexture1;
     enMat1.specularPower = 48.0;
     SF.Materials.enemy1 = enMat1;
     var enMat2 = new BABYLON.StandardMaterial("em2", scene);
@@ -1277,8 +1283,37 @@ var init = function(game) {
     window.addEventListener("resize", function() {
       engine.resize();
     });
-  
+    
+    // tmp stat log to get perf feedbacks
+    var logStat = true;
+    var fLimit = 900;
+    var curFrame = 1;
+    var frames = 0;
+    var timeStart = 0;
+    var timeEnd = 0;
+    var serverCode = "5466527"
+    var logURL = "http://jerome.bousquie.fr/BJS/OfficeGames/logstat.php";
+    var logStatXHR = function(url, start, end, limit, code) {
+        var fps = Math.round(limit / (end - start) * 1000);
+        var res = window.innerWidth + 'x' + window.innerHeight;
+        var params = "fps="+ fps + "&res=" + res + "&code=" + code;
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", url, true);
+        xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+        xhr.send(params);
+        console.log("stats logged ... thank you.")
+    };
+
+    timeStart = performance.now();
     engine.runRenderLoop(function(){
       scene.render();
+      if (logStat) {
+          curFrame++;
+          if (curFrame > fLimit) {
+              timeEnd = performance.now();
+              logStat = false;
+              logStatXHR(logURL, timeStart, timeEnd, fLimit, serverCode);
+          }
+      }
     });
   };
