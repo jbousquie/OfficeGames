@@ -40,7 +40,7 @@ SF.CreateMaterials = function(scene) {
     var enemyTexture2 = new BABYLON.Texture(SF.Assets.enemyURL2, scene);
     var enemyBumpTexture1 = new BABYLON.Texture(SF.Assets.enemyNormalURL1, scene);
     var enemyBumpTexture2 = new BABYLON.Texture(SF.Assets.enemyNormalURL3, scene);
-    enemyTexture2.uScale = 3.0;
+    enemyTexture2.uScale = 0.5;
     enemyTexture2.vScale = enemyTexture2.uScale;
     enemyBumpTexture2.uScale = enemyTexture2.uScale;
     enemyBumpTexture2.vScale = enemyTexture2.uScale;
@@ -417,6 +417,11 @@ SF.Enemy = function(id, model, gameScene) {
             curPart.color.r = 0.0;
             curPart.color.g = (Math.random() < 0.5) ? 0.0 : 0.3;
             curPart.color.b = (Math.random() < 0.5) ? 0.0 : 0.3;
+        } else 
+        if (curPart._ind < 876) {
+            curPart.color.r = 0.55;
+            curPart.color.g = 0.5;
+            curPart.color.b = 0.5;
         }
     }
     enemySPS.setParticles();                                                // set the particle once at their computed positions
@@ -538,15 +543,34 @@ SF.Enemies = function(gameScene) {
     var cyl = BABYLON.MeshBuilder.CreateCylinder('', { diameter: 0.5, height: 4.0, subdivisions: 2|0 }, scene);
     var sph = BABYLON.MeshBuilder.CreateSphere('', { diameter: 2.0, segments: 4|0}, scene);
     var cockpit = BABYLON.MeshBuilder.CreateSphere('', {segments: 3|0, diameterX: 1.0, diameterY: 1.0, diameterZ: 0.2}, scene);
-    var insideCyl = BABYLON.MeshBuilder.CreateCylinder('', {height: 1.2, diameterBottom: 0.6, diameterTop: 0.8, tessellation: 16, subdivisions: 1}, scene);
-    var insidePol1 = BABYLON.MeshBuilder.CreatePolyhedron('', {flat: true, size: 0.4}, scene);
+    var insideIco = BABYLON.MeshBuilder.CreateIcoSphere('', {radius: 0.5, subdivisions: 6}, scene);
+    var insideBox = BABYLON.MeshBuilder.CreateBox('', {size: 1.0}, scene);
+    var insideCyl1 = BABYLON.MeshBuilder.CreateCylinder('', {height: 1.4, diameterBottom: 0.2, diameterTop: 0.75, tessellation: 16, subdivisions: 1}, scene);
+    var insideCyl2 = insideCyl1.clone();
+    var insideCyl3 = insideCyl1.clone();
+    var insideCyl4 = insideCyl1.clone();
+    insideCyl1.rotation.x = this.gameScene.halfPI;
+    insideCyl2.rotation.x = this.gameScene.halfPI;
+    insideCyl3.rotation.x = this.gameScene.halfPI;
+    insideCyl4.rotation.x = this.gameScene.halfPI;
+    insideCyl1.position.x = -0.5;
+    insideCyl1.position.y = 0.5;
+    insideCyl1.position.z = 0.2;
+    insideCyl2.position.x = 0.5;
+    insideCyl2.position.y = 0.5;
+    insideCyl2.position.z = 0.2;
+    insideCyl3.position.y = -0.5;
+    insideCyl3.position.z = 0.2;
+    insideCyl4.scaling.y = 0.9;
+    insideCyl4.scaling.z = 0.9;
+    insideCyl4.scaling.x = 0.9;
     cyl.rotation.z = this.gameScene.halfPI;
     disc1.rotation.z = this.gameScene.halfPI;      
     disc2.rotation.z = -this.gameScene.halfPI;
     disc1.position.x = 2.0;
     disc2.position.x = -2.0;        
     cockpit.position.z = -1.0;
-    var enemyModel = BABYLON.Mesh.MergeMeshes([cockpit, cyl, sph, disc1, disc2, insideCyl, insidePol1, insideCyl, insidePol1, insideCyl, insideCyl, insideCyl], true, true);
+    var enemyModel = BABYLON.Mesh.MergeMeshes([cockpit, insideCyl1, insideCyl2, insideCyl3, insideIco, insideBox, cyl, insideCyl4, insideCyl4, insideCyl4, sph, disc1, disc2], true, true);
 
     for (var e = 0; e < this.enemyNb; e++) {  
         this.pool[e] = new SF.Enemy(e, enemyModel, this.gameScene);
@@ -1332,7 +1356,7 @@ var init = function(game) {
         xhr.open("POST", url, true);
         xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
         xhr.send(params);
-        console.log("stats logged ... thank you.")
+        console.log("stats logged : " + fps + " fps, thank you.")
     };
 
     engine.runRenderLoop(function(){
