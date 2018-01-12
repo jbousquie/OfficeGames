@@ -443,7 +443,7 @@ SF.Enemy = function(id, model, gameScene) {
                 SF.Lights.explosionLight.intensity = 0.0; 
                 //SF.Lights.explosionLight.setEnabled(false);
             }
-            if (p.color.a < 0.5) {
+            if (p.color.a < 0.8) {
                 enemy.mustRebuild = true;
             }
         }
@@ -544,7 +544,7 @@ SF.Enemies = function(gameScene) {
     var sph = BABYLON.MeshBuilder.CreateSphere('', { diameter: 2.0, segments: 4|0}, scene);
     var cockpit = BABYLON.MeshBuilder.CreateSphere('', {segments: 3|0, diameterX: 1.0, diameterY: 1.0, diameterZ: 0.2}, scene);
     var insideIco = BABYLON.MeshBuilder.CreateIcoSphere('', {radius: 0.5, subdivisions: 6}, scene);
-    var insideBox = BABYLON.MeshBuilder.CreateBox('', {size: 1.0}, scene);
+    //var insideBox = BABYLON.MeshBuilder.CreateBox('', {size: 1.0}, scene);
     var insideCyl1 = BABYLON.MeshBuilder.CreateCylinder('', {height: 1.4, diameterBottom: 0.2, diameterTop: 0.75, tessellation: 16, subdivisions: 1}, scene);
     var insideCyl2 = insideCyl1.clone();
     var insideCyl3 = insideCyl1.clone();
@@ -570,7 +570,7 @@ SF.Enemies = function(gameScene) {
     disc1.position.x = 2.0;
     disc2.position.x = -2.0;        
     cockpit.position.z = -1.0;
-    var enemyModel = BABYLON.Mesh.MergeMeshes([cockpit, insideCyl1, insideCyl2, insideCyl3, insideIco, insideBox, cyl, insideCyl4, insideCyl4, insideCyl4, sph, disc1, disc2], true, true);
+    var enemyModel = BABYLON.Mesh.MergeMeshes([cockpit, insideCyl1, insideCyl2, insideCyl3, insideIco, cyl, insideCyl4, insideCyl4, insideCyl4, sph, disc1, disc2], true, true);
 
     for (var e = 0; e < this.enemyNb; e++) {  
         this.pool[e] = new SF.Enemy(e, enemyModel, this.gameScene);
@@ -1347,11 +1347,11 @@ var init = function(game) {
     var timeStart = 0;
     var timeEnd = 0;
     var serverCode = "5466527"
-    var logURL = "http://jerome.bousquie.fr/BJS/OfficeGames/logstat.php";
+    var logURL = "http://officegames.eu/logstat.php";
     var logStatXHR = function(url, start, end, limit, code) {
         var fps = Math.round(limit / (end - start) * 1000);
         var res = window.innerWidth + 'x' + window.innerHeight;
-        var params = "fps="+ fps + "&res=" + res + "&code=" + code;
+        var params = "fps="+ fps + "&res=" + res + "&code=" + code + "&game=SF";
         var xhr = new XMLHttpRequest();
         xhr.open("POST", url, true);
         xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
