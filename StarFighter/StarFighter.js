@@ -384,7 +384,7 @@ SF.Enemy = function(id, model, gameScene) {
     this.gameScene = gameScene;
     this.enemyShield = this.gameScene.enemyShield;
     this.enemySpeed = this.gameScene.enemySpeed;
-    this.maxShield = 6|0 + (Math.random() * this.enemyShield)|0;             // Enemy resistance
+    this.maxShield = (6|0) + (Math.random() * this.enemyShield)|0;             // Enemy resistance
     this.speed = this.enemySpeed * Math.random();                            // speed
     this.shield = this.maxShield;                                       // current shield value
     this.explosion = false;                                             // if the Enemy is exploding
@@ -511,8 +511,14 @@ SF.Enemy.prototype.explode = function(impact) {
     //SF.Lights.explosionLight.setEnabled(true);
     SF.Lights.explosionLight.position.copyFrom(this.mesh.position);
     SF.Lights.explosionLight.intensity = SF.Lights.explLghtIntensity;
-    this.gameScene.score += 100|0;
-    this.gameScene.gui.score.text = this.gameScene.gui.pad(this.gameScene.score, 6);
+    this.gameScene.setScore(100|0);
+    if (this.gameScene.isCompleted()) {
+        var msg = {
+            emitterName: "game",
+            message: "completed"
+        }
+        this.gameScene.scene.sceneManager.notify(msg);
+    }
 };
 SF.Enemy.prototype.rebuild = function() {
     this.explosion = false;
@@ -830,16 +836,18 @@ SF.ShipLasers = function(gameScene) {
     // laser ball model
     var tess = 24|0;
     var ballModel = BABYLON.MeshBuilder.CreateDisc('lb', {radius: 1, tessellation: tess, updatable: true}, scene);
-    var ballColors = new Float32Array(4|0 * (tess + 3|0)); // a closed circle has tess + 3 vertices
+    var vNb = tess + 3|0;       // a closed circle has tess + 3 vertices
+    var arSize = vNb * 4|0;
+    var ballColors = new Float32Array(arSize); 
     ballColors[0] = 0.5;            // disc center
     ballColors[1] = 0.5;
     ballColors[2] = 1.0;
     ballColors[3] = 0.8;
-    for (var c = 1|0; c <= tess + 2; c++) {
+    for (var c = 1|0; c < vNb; c++) {
         ballColors[c * 4|0] = 0.5;
-        ballColors[c * 4|0 + 1|0] = 0.5;
-        ballColors[c * 4|0 + 2|0] = 1.0;
-        ballColors[c * 4|0 + 3|0] = 0.7;
+        ballColors[(c * 4|0) + 1|0] = 0.5;
+        ballColors[(c * 4|0) + 2|0] = 1.0;
+        ballColors[(c * 4|0) + 3|0] = 0.7;
     }
     ballModel.setVerticesData(BABYLON.VertexBuffer.ColorKind, ballColors);
     
@@ -1123,6 +1131,10 @@ SF.GameScene = function(canvas, engine) {
 
     this.alive = true;                              // is the player alive ?
     this.score = 0|0;                               // game score   
+    this.level = 1|0;                               // scene level
+    this.goals = [8|0, 12|0, 18|0, 25|0, 40|0];     // scene goals : nb of killed per mission
+    this.goal = this.goals[0];                      // current scene goal
+    this.killed = 0|0;                              // number of killed enemies
     this.cameraFov = 0.0;                           // camera fov
     this.fovCorrection = 0.0;                       // sight projection ratio from the screen space 
     this.aspectRatio = 0.0;                         //  aspect ratio from width/height screen size
@@ -1327,50 +1339,149 @@ SF.GameScene.prototype.bumpCamera = function(rate) {
     this.light.diffuse.g = 0.5;
     this.light.intensity = 1.0;
 };
+SF.GameScene.prototype.setScore = function(val) {
+    this.killed++;
+    this.score += val;
+    this.gui.score.text = this.gui.pad(this.score, 6);
+};
+SF.GameScene.prototype.isCompleted = function() {
+    return (this.killed >= this.goal);
+};
+
+// Extend the BJS object Scene to store the scene sceneManager
+BABYLON.Scene.prototype.setSceneManager = function(sceneManager) {
+    this.sceneManager = sceneManager;
+};
+
+SF.LevelScene = function(engine) {
+    this.scene = new BABYLON.Scene(engine);
+    this.camera = new BABYLON.TargetCamera("cam", BABYLON.Vector3.Zero(), this.scene);
+    this.level = 1|0;
+    this.messageScreen = new SF.MessageScreen(engine);
+    this.message = "LEVEL 1 : destroy 8 enemies";
+    this.messageScreen.setHTMLText(this.message);
+    var that = this;
+    this.notificationMsg = {
+        level: that.level,
+        emitterName: "level",
+        message: "completed",
+        emitter: that
+    };
+    this.scene.onPointerObservable.add(function(eventData) { that.scene.sceneManager.notify(that.notificationMsg); }, BABYLON.PointerEventTypes.POINTERDOWN);
+};
+SF.LevelScene.prototype.nextLevel = function() {
+    this.level++;
+    this.message = "LEVEL " + String(this.level) + " : destroy 10 enemies";
+    this.messageScreen.setHTMLText(this.message);
+    return this.level;
+};
+
+
+SF.MessageScreen = function(engine) {
+    this.text = "";
+    var adt = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI('TextScreen', true, this.scene);
+    adt.idealWitdh = 600;
+    adt.renderAtIdealSize = true;
+    var textBlock = new BABYLON.GUI.TextBlock();
+    textBlock.text = this.text;
+    textBlock.color = "white";
+    textBlock.fontSize = 72;
+    textBlock.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+    adt.addControl(textBlock);
+    this.textBlock = textBlock;
+};
+SF.MessageScreen.prototype.setHTMLText = function(text) {
+    this.text = text;
+    this.textBlock.text = this.text;
+};
+
+
+SF.SceneManager = function() {
+    this.scenes = {};           // scene objects storage
+    this.sceneNb = 0;
+    this.currentScene = undefined;
+};
+SF.SceneManager.prototype.addScene = function(name, scene) {
+    this.scenes[name] = scene;
+    if (this.sceneNb == 0) {
+        this.currentScene = scene;
+    }
+    scene.setSceneManager(this);
+    this.sceneNb++;
+};
+SF.SceneManager.prototype.removeScene = function(name) {
+    this.scene[name] = null;
+    this.sceneNb--;
+    if (this.sceneNb < 0) {
+        this.sceneNb = 0;
+        this.currentScene = null;
+    }
+}
+SF.SceneManager.prototype.renderCurrentScene = function() {
+    this.currentScene.render();
+};
+// Scene orchestration
+SF.SceneManager.prototype.notify = function(messageObject) {
+    // if LevelScene completed
+    if (messageObject.emitterName == "level" && messageObject.message == "completed") {
+        var game = this.scenes["game"]; 
+        this.currentScene = game;
+        var gameScene = game.logicalScene;
+        var level = messageObject.emitter.level;
+        gameScene.level = level;
+        var maxGoalNb = gameScene.goals.length - 1;
+        if (gameScene.level > maxGoalNb) {
+            gameScene.goal = gameScene.goals[maxGoalNb];
+        }
+        else {
+            gameScene.goal = gameScene.goals[level - 1] 
+        }
+        gameScene.killed = 0|0;
+    }
+    // if GameScene finished
+    if (messageObject.emitterName == "game") {
+        // mission completed
+        if (messageObject.message == "completed") {
+            var levelScreen = this.scenes["level"];
+            this.currentScene = levelScreen;
+            levelScreen.logicalScene.nextLevel();
+        }
+        // game over
+        else {
+
+        }
+    }
+};
+
 
 // Init
 var init = function(game) {
     var canvas = document.querySelector('#renderCanvas');
     var engine = new BABYLON.Engine(canvas, true);
+    var sceneManager = new game.SceneManager();
+    var levelScene = new game.LevelScene(engine);
     var gameScene = new game.GameScene(canvas, engine);
-    var scene =  gameScene.scene;
+    gameScene.level = levelScene.level;
+    
+    var BJSLevelScene = levelScene.scene;
+    var BJSGameScene = gameScene.scene;
+    // keep a reference of the logical scene in the BJS scene object
+    BJSLevelScene.logicalScene = levelScene;
+    BJSGameScene.logicalScene = gameScene;
+
+    // register the BJS scenes in the sceneManager
+    sceneManager.addScene("game", BJSGameScene);            
+    sceneManager.addScene("level", BJSLevelScene);
+
+    var startScene = sceneManager.scenes["level"];
+    sceneManager.currentScene = startScene;
+
     window.addEventListener("resize", function() {
       engine.resize();
     });
     
-    // tmp stat log to get perf feedbacks
-    var logStat = true;
-    var fLimit = 1200;
-    var fStart = 240;
-    var curFrame = 1;
-    var frames = 0;
-    var timeStart = 0;
-    var timeEnd = 0;
-    var serverCode = "5466527"
-    var logURL = "http://officegames.eu/logstat.php";
-    var logStatXHR = function(url, start, end, limit, code) {
-        var fps = Math.round(limit / (end - start) * 1000);
-        var res = window.innerWidth + 'x' + window.innerHeight;
-        var params = "fps="+ fps + "&res=" + res + "&code=" + code + "&game=SF";
-        var xhr = new XMLHttpRequest();
-        xhr.open("POST", url, true);
-        xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-        xhr.send(params);
-        console.log("stats logged : " + fps + " fps, thank you.")
-    };
 
     engine.runRenderLoop(function(){
-      scene.render();
-      curFrame++;
-      if (logStat) {
-          if (curFrame == fStart) {
-            timeStart = performance.now();
-          }
-          if (curFrame > fLimit) {
-              timeEnd = performance.now();
-              logStat = false;
-              logStatXHR(logURL, timeStart, timeEnd, fLimit - fStart, serverCode);
-          }
-      }
+      sceneManager.renderCurrentScene();
     });
   };
