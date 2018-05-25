@@ -10,7 +10,14 @@ var randomSign = function() {
 };
 
 // StarFighter game object
-var SF = {};
+var SF = {
+    score: 0|0,                               // global score
+    level: 1|0,                               // game level
+    goals: [8|0, 12|0, 18|0, 25|0, 40|0],     // game goals : nb of killed to complete a mission
+    killed: 0|0                               // killed in the mission
+};
+SF.goal = SF.goals[0];                         // current mission goal
+SF.goalMaxNb = SF.goals.length;                // max number of goals
 
 // Assets
 // credits : https://www.solarsystemscope.com/textures
@@ -1076,7 +1083,7 @@ SF.Impacts.prototype.animate = function() {
 };
 
 // Game scene
-SF.GameScene = function(canvas, engine) {
+SF.GameScene = function(canvas, engine, game) {
 
     // Global parameters
 
@@ -1125,15 +1132,12 @@ SF.GameScene = function(canvas, engine) {
 
     // members
     this.canvas = canvas;
-    this.scene = null;
-    this.camera = null;
+    this.scene = undefined;
+    this.camera = undefined;
     this.engine = engine;
+    this.game = game;
 
     this.alive = true;                              // is the player alive ?
-    this.score = 0|0;                               // game score   
-    this.level = 1|0;                               // scene level
-    this.goals = [8|0, 12|0, 18|0, 25|0, 40|0];     // scene goals : nb of killed per mission
-    this.goal = this.goals[0];                      // current scene goal
     this.killed = 0|0;                              // number of killed enemies
     this.cameraFov = 0.0;                           // camera fov
     this.fovCorrection = 0.0;                       // sight projection ratio from the screen space 
@@ -1340,12 +1344,12 @@ SF.GameScene.prototype.bumpCamera = function(rate) {
     this.light.intensity = 1.0;
 };
 SF.GameScene.prototype.setScore = function(val) {
-    this.killed++;
-    this.score += val;
-    this.gui.score.text = this.gui.pad(this.score, 6);
+    this.game.killed++;
+    this.game.score += val;
+    this.gui.score.text = this.gui.pad(this.game.score, 6);
 };
 SF.GameScene.prototype.isCompleted = function() {
-    return (this.killed >= this.goal);
+    return (this.game.killed >= this.game.goal);
 };
 
 // Extend the BJS object Scene to store the scene sceneManager
@@ -1353,12 +1357,12 @@ BABYLON.Scene.prototype.setSceneManager = function(sceneManager) {
     this.sceneManager = sceneManager;
 };
 
-SF.LevelScene = function(engine) {
+SF.LevelScene = function(engine, game) {
+    this.game = game;
     this.scene = new BABYLON.Scene(engine);
     this.camera = new BABYLON.TargetCamera("cam", BABYLON.Vector3.Zero(), this.scene);
-    this.level = 1|0;
     this.messageScreen = new SF.MessageScreen(engine);
-    this.message = "LEVEL 1 : destroy 8 enemies";
+    this.message = "LEVEL 1 : destroy " + String(this.game.goal) + " enemies";
     this.messageScreen.setHTMLText(this.message);
     var that = this;
     this.notificationMsg = {
@@ -1370,10 +1374,18 @@ SF.LevelScene = function(engine) {
     this.scene.onPointerObservable.add(function(eventData) { that.scene.sceneManager.notify(that.notificationMsg); }, BABYLON.PointerEventTypes.POINTERDOWN);
 };
 SF.LevelScene.prototype.nextLevel = function() {
-    this.level++;
-    this.message = "LEVEL " + String(this.level) + " : destroy 10 enemies";
+    var game = this.game;
+    game.level++;
+    // set the game next goal
+    if (game.level > game.goalMaxNb) {
+        game.goal = game.goals[goalMaxNb - 1];
+    }
+    else {
+        game.goal = game.goals[game.level - 1] 
+    }
+    this.message = "LEVEL " + String(game.level) + " : destroy " + String(game.goal) + " enemies";
     this.messageScreen.setHTMLText(this.message);
-    return this.level;
+    return game.level;
 };
 
 
@@ -1399,7 +1411,7 @@ SF.MessageScreen.prototype.setHTMLText = function(text) {
 SF.SceneManager = function() {
     this.scenes = {};           // scene objects storage
     this.sceneNb = 0;
-    this.currentScene = undefined;
+    this.currentScene = undefined;   
 };
 SF.SceneManager.prototype.addScene = function(name, scene) {
     this.scenes[name] = scene;
@@ -1424,27 +1436,18 @@ SF.SceneManager.prototype.renderCurrentScene = function() {
 SF.SceneManager.prototype.notify = function(messageObject) {
     // if LevelScene completed
     if (messageObject.emitterName == "level" && messageObject.message == "completed") {
-        var game = this.scenes["game"]; 
-        this.currentScene = game;
-        var gameScene = game.logicalScene;
-        var level = messageObject.emitter.level;
-        gameScene.level = level;
-        var maxGoalNb = gameScene.goals.length - 1;
-        if (gameScene.level > maxGoalNb) {
-            gameScene.goal = gameScene.goals[maxGoalNb];
-        }
-        else {
-            gameScene.goal = gameScene.goals[level - 1] 
-        }
-        gameScene.killed = 0|0;
+
+        SF.killed = 0|0;                            // reset the killed in the mission
+        this.currentScene = this.scenes["game"];    // set the next BJS scene to be displayed
     }
+
     // if GameScene finished
     if (messageObject.emitterName == "game") {
         // mission completed
         if (messageObject.message == "completed") {
             var levelScreen = this.scenes["level"];
-            this.currentScene = levelScreen;
-            levelScreen.logicalScene.nextLevel();
+            levelScreen.logicalScene.nextLevel();   // increment level and update the level screen text
+            this.currentScene = levelScreen;        // set the next BJS scene to be displayed
         }
         // game over
         else {
@@ -1454,14 +1457,14 @@ SF.SceneManager.prototype.notify = function(messageObject) {
 };
 
 
+
 // Init
 var init = function(game) {
     var canvas = document.querySelector('#renderCanvas');
     var engine = new BABYLON.Engine(canvas, true);
     var sceneManager = new game.SceneManager();
-    var levelScene = new game.LevelScene(engine);
-    var gameScene = new game.GameScene(canvas, engine);
-    gameScene.level = levelScene.level;
+    var levelScene = new game.LevelScene(engine, game);
+    var gameScene = new game.GameScene(canvas, engine, game);
     
     var BJSLevelScene = levelScene.scene;
     var BJSGameScene = gameScene.scene;
