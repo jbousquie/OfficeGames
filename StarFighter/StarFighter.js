@@ -302,13 +302,12 @@ SF.Starship.prototype.checkLaserHit = function(laser) {
         this.gameScene.bumpCamera(cockpitImpactRate);
         this.updateShield(Math.abs(cockpitImpactRate));
         if (this.shield < 0) {
-            this.gameScene.alive = false;
-            if ( window.confirm("You're dead...\n\nSCORE = "+this.gameScene.score+"\n\nRetry ?\n\n") ) {
-                this.resetShield();
-                this.gameScene.alive = true;
-                this.gameScene.score = 0|0;
-                this.gameScene.gui.score.text = this.gameScene.gui.pad(this.gameScene.score, 6);
+            this.resetShield();
+            var msg = {
+                emitterName: "game",
+                message: "over"
             }
+            this.gameScene.scene.sceneManager.notify(msg);
         }
     }
 };
@@ -1377,17 +1376,18 @@ SF.LevelScene.prototype.nextLevel = function() {
     var game = this.game;
     game.level++;
     // set the game next goal
-    if (game.level > game.goalMaxNb) {
-        game.goal = game.goals[goalMaxNb - 1];
-    }
-    else {
-        game.goal = game.goals[game.level - 1] 
-    }
+    var index = (game.level > game.goalMaxNb) ? game.goalMaxNb - 1 : game.level - 1;
+    game.goal = game.goals[index];
+
+    this.notificationMsg.message = "completed";
     this.message = "LEVEL " + String(game.level) + " : destroy " + String(game.goal) + " enemies";
     this.messageScreen.setHTMLText(this.message);
-    return game.level;
 };
-
+SF.LevelScene.prototype.gameOver = function() {
+    this.notificationMsg.message = "restart";
+    this.message = "GAME OVER, Final score : " + this.game.score;
+    this.messageScreen.setHTMLText(this.message);
+};
 
 SF.MessageScreen = function(engine) {
     this.text = "";
@@ -1434,25 +1434,38 @@ SF.SceneManager.prototype.renderCurrentScene = function() {
 };
 // Scene orchestration
 SF.SceneManager.prototype.notify = function(messageObject) {
-    // if LevelScene completed
-    if (messageObject.emitterName == "level" && messageObject.message == "completed") {
 
+    // If Level screen finished
+    if (messageObject.emitterName == "level") {
+        switch(messageObject.message) {
+            // LevelScene completed
+            case "completed":
+                // ... nothing special up now
+                break;
+            // Restart requested
+            case "restart":
+                // reset the game parameters to initial values
+                SF.score = 0|0
+                SF.level = 1|0;
+                SF.goal = SF.goals[0];
+                break;
+        }
         SF.killed = 0|0;                            // reset the killed in the mission
         this.currentScene = this.scenes["game"];    // set the next BJS scene to be displayed
     }
 
     // if GameScene finished
     if (messageObject.emitterName == "game") {
-        // mission completed
-        if (messageObject.message == "completed") {
-            var levelScreen = this.scenes["level"];
-            levelScreen.logicalScene.nextLevel();   // increment level and update the level screen text
-            this.currentScene = levelScreen;        // set the next BJS scene to be displayed
+        var levelScreen = this.scenes["level"];
+        switch(messageObject.message) {
+            case "completed":
+                levelScreen.logicalScene.nextLevel();   // increment level and update the level screen text
+                break;
+            case "over":
+                levelScreen.logicalScene.gameOver();    // game over screen
+                break;
         }
-        // game over
-        else {
-
-        }
+        this.currentScene = levelScreen;            // set the next BJS scene to be displayed
     }
 };
 
