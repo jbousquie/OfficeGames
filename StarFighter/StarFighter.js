@@ -1347,6 +1347,9 @@ SF.GameScene.prototype.setScore = function(val) {
     this.game.score += val;
     this.gui.score.text = this.gui.pad(this.game.score, 6);
 };
+SF.GameScene.prototype.resetScore = function() {
+    this.gui.score.text = this.gui.pad(0, 6);
+};
 SF.GameScene.prototype.isCompleted = function() {
     return (this.game.killed >= this.game.goal);
 };
@@ -1435,28 +1438,31 @@ SF.SceneManager.prototype.renderCurrentScene = function() {
 // Scene orchestration
 SF.SceneManager.prototype.notify = function(messageObject) {
 
+    var levelScreen = this.scenes["level"];
+
     // If Level screen finished
     if (messageObject.emitterName == "level") {
         switch(messageObject.message) {
             // LevelScene completed
             case "completed":
-                // ... nothing special up now
+                this.currentScene = this.scenes["game"];    // set the next BJS scene to be displayed
                 break;
             // Restart requested
             case "restart":
                 // reset the game parameters to initial values
+                // stay on the same scene : LevelScreen
                 SF.score = 0|0
-                SF.level = 1|0;
-                SF.goal = SF.goals[0];
+                SF.level = 0|0;
+                this.scenes["game"].logicalScene.resetScore();
+                levelScreen.logicalScene.nextLevel();
                 break;
         }
         SF.killed = 0|0;                            // reset the killed in the mission
-        this.currentScene = this.scenes["game"];    // set the next BJS scene to be displayed
     }
 
     // if GameScene finished
     if (messageObject.emitterName == "game") {
-        var levelScreen = this.scenes["level"];
+        
         switch(messageObject.message) {
             case "completed":
                 levelScreen.logicalScene.nextLevel();   // increment level and update the level screen text
