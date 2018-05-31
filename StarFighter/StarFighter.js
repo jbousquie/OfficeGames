@@ -1369,7 +1369,11 @@ SF.LevelScene = function(engine, game) {
     // Decor
     SF.CreateMaterials(this.scene);
     this.distance = 60.0;
-    this.universe = new SF.Universe(this);
+    //this.universe = new SF.Universe(this);
+    var scene = this.scene;
+    this.universe = {mesh: BABYLON.MeshBuilder.CreatePlane('p', {size: 50.0}, scene)};
+    this.universe.mesh.position.z = 10.0;
+    this.universe.mesh.material = SF.Materials.universe;
     this.light = new BABYLON.HemisphericLight("LLight", V(0.0, 0.0, -1.0), this.scene);
     this.light.excludedMeshes = [this.universe.mesh];
 
