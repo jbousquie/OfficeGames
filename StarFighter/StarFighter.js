@@ -35,7 +35,7 @@ SF.Assets = {
 };
 
 // Materials
-SF.CreateMaterials = function(scene) {
+SF.CreateMaterials = function(scene) {  
     SF.Materials = {};
     // Textures
     var flare = new BABYLON.Texture(SF.Assets.flareURL, scene);
@@ -184,7 +184,6 @@ SF.Universe = function(gameScene) {
     icosphere.material = SF.Materials.universe;
     icosphere.alwaysSelectAsActiveMesh = true;
     this.mesh = icosphere;
-
 };
 SF.Universe.prototype.animate = function() {
     this.mesh.rotation.x += this.gameScene.ang.x * 0.01;
@@ -1362,10 +1361,21 @@ BABYLON.Scene.prototype.setSceneManager = function(sceneManager) {
 SF.LevelScene = function(engine, game) {
     this.game = game;
     this.scene = new BABYLON.Scene(engine);
+    this.scene.clearColor = BABYLON.Color3.Black();
     this.camera = new BABYLON.TargetCamera("cam", BABYLON.Vector3.Zero(), this.scene);
+    this.camera.direction = V(0.0, 0.0, 1.0);
+
+    // Decor
+    SF.CreateMaterials(this.scene);
+    this.distance = 60.0;
+    this.universe = new SF.Universe(this);
+    this.light = new BABYLON.HemisphericLight("LLight", V(0.0, 0.0, 1.0), this.scene);
+    this.light.excludedMeshes = [this.universe.mesh];
+
     this.messageScreen = new SF.MessageScreen(engine);
-    this.message = "LEVEL 1 : destroy " + String(this.game.goal) + " enemies";
-    this.messageScreen.setHTMLText(this.message);
+    this.title = "LEVEL 1"
+    this.message = "Destroy " + String(this.game.goal) + " enemies";
+    this.messageScreen.setHTMLText(this.title, this.message);
     var that = this;
     this.notificationMsg = {
         level: that.level,
@@ -1373,7 +1383,21 @@ SF.LevelScene = function(engine, game) {
         message: "completed",
         emitter: that
     };
-    this.scene.onPointerObservable.add(function(eventData) { that.scene.sceneManager.notify(that.notificationMsg); }, BABYLON.PointerEventTypes.POINTERDOWN);
+    this.animation = false;
+    this.scene.onPointerObservable.add(function(eventData) { that.animation = true;}, BABYLON.PointerEventTypes.POINTERDOWN);
+    this.scene.registerBeforeRender(function() {
+        if (that.animation) {
+            var board = that.messageScreen.board;
+            board.position.z += 0.1;
+            board.rotation.x += 0.1;
+            if (board.position.z > 10.0) {
+                that.animation = false;
+                board.position.copyFrom(that.messageScreen.boardInitialLocation);
+                board.rotation.x = 0.0;
+                that.scene.sceneManager.notify(that.notificationMsg);
+            }
+        };
+    });
 };
 SF.LevelScene.prototype.nextLevel = function() {
     var game = this.game;
@@ -1383,31 +1407,49 @@ SF.LevelScene.prototype.nextLevel = function() {
     game.goal = game.goals[index];
 
     this.notificationMsg.message = "completed";
-    this.message = "LEVEL " + String(game.level) + " : destroy " + String(game.goal) + " enemies";
-    this.messageScreen.setHTMLText(this.message);
+    this.title = "LEVEL " + String(game.level);
+    this.message =  "Destroy " + String(game.goal) + " enemies";
+    this.messageScreen.setHTMLText(this.title, this.message);
 };
 SF.LevelScene.prototype.gameOver = function() {
     this.notificationMsg.message = "restart";
-    this.message = "GAME OVER, Final score : " + this.game.score;
-    this.messageScreen.setHTMLText(this.message);
+    this.title = "GAME OVER";
+    this.message = "Final score : " + this.game.score;
+    this.messageScreen.setHTMLText(this.title, this.message);
 };
 
 SF.MessageScreen = function(engine) {
+    this.title = "";
     this.text = "";
-    var adt = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI('TextScreen', true, this.scene);
-    adt.idealWitdh = 600;
-    adt.renderAtIdealSize = true;
+    this.board = BABYLON.MeshBuilder.CreatePlane("board", {}, this.scene);
+    this.boardInitialLocation = V(0.0, 0.0, 1.0);
+    this.board.position.copyFrom(this.boardInitialLocation);
+    var adt = BABYLON.GUI.AdvancedDynamicTexture.CreateForMesh(this.board, 1024, 1024);
+    var titleBlock = new BABYLON.GUI.TextBlock();
+    titleBlock.text = this.text;
+    titleBlock.color = "black";
+    titleBlock.outlineColor = "white";
+    titleBlock.outlineWidth = 6;
+    titleBlock.fontSize = 120;
+    titleBlock.fontStyle = "bold";
+    titleBlock.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+    titleBlock.top = "-50px";
+    adt.addControl(titleBlock);
     var textBlock = new BABYLON.GUI.TextBlock();
     textBlock.text = this.text;
     textBlock.color = "white";
-    textBlock.fontSize = 72;
+    textBlock.fontSize = 60;
     textBlock.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+    textBlock.top = "80px";
     adt.addControl(textBlock);
     this.textBlock = textBlock;
+    this.titleBlock = titleBlock;
 };
-SF.MessageScreen.prototype.setHTMLText = function(text) {
+SF.MessageScreen.prototype.setHTMLText = function(title, text) {
     this.text = text;
     this.textBlock.text = this.text;
+    this.title = title;
+    this.titleBlock.text = this.title;
 };
 
 
