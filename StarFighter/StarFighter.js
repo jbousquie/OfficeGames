@@ -1369,7 +1369,7 @@ SF.LevelScene = function(engine, game) {
     SF.CreateMaterials(this.scene);
     this.distance = 60.0;
     this.universe = new SF.Universe(this);
-    this.light = new BABYLON.HemisphericLight("LLight", V(0.0, 0.0, 1.0), this.scene);
+    this.light = new BABYLON.HemisphericLight("LLight", V(0.0, 0.0, -1.0), this.scene);
     this.light.excludedMeshes = [this.universe.mesh];
 
     this.messageScreen = new SF.MessageScreen(engine);
@@ -1384,19 +1384,21 @@ SF.LevelScene = function(engine, game) {
         emitter: that
     };
     this.animation = false;
-    this.scene.onPointerObservable.add(function(eventData) { that.animation = true;}, BABYLON.PointerEventTypes.POINTERDOWN);
+    this.scene.onPointerObservable.add(function(eventData) { that.animation = true; }, BABYLON.PointerEventTypes.POINTERDOWN);
     this.scene.registerBeforeRender(function() {
+        var board = that.messageScreen.board;
         if (that.animation) {
-            var board = that.messageScreen.board;
             board.position.z += 0.1;
             board.rotation.x += 0.1;
             if (board.position.z > 10.0) {
                 that.animation = false;
-                board.position.copyFrom(that.messageScreen.boardInitialLocation);
-                board.rotation.x = 0.0;
                 that.scene.sceneManager.notify(that.notificationMsg);
             }
-        };
+        }
+        else {
+            board.position.copyFrom(that.messageScreen.boardInitialLocation);
+            board.rotation.x = 0.0;
+        }
     });
 };
 SF.LevelScene.prototype.nextLevel = function() {
@@ -1406,6 +1408,7 @@ SF.LevelScene.prototype.nextLevel = function() {
     var index = (game.level > game.goalMaxNb) ? game.goalMaxNb - 1 : game.level - 1;
     game.goal = game.goals[index];
 
+    this.animation = false;
     this.notificationMsg.message = "completed";
     this.title = "LEVEL " + String(game.level);
     this.message =  "Destroy " + String(game.goal) + " enemies";
