@@ -540,6 +540,7 @@ SF.Enemy.prototype.rebuild = function() {
         this.sps.particles[ip].velocity.scaleInPlace(Math.random() * this.enemyExplosionVelocity);
     } 
     this.sps.setParticles();  
+    this.speed = this.gameScene.enemySpeed * Math.random();
 };
 SF.Enemies = function(gameScene) {
     this.gameScene = gameScene;
