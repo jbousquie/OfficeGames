@@ -18,6 +18,7 @@ var SF = {
 };
 SF.goal = SF.goals[0];                         // current mission goal
 SF.goalMaxNb = SF.goals.length;                // max number of goals
+SF.enemyName = "MorVörsKers";                  // enemy name
 
 // Assets
 // credits : https://www.solarsystemscope.com/textures
@@ -1384,7 +1385,7 @@ SF.LevelScene = function(engine, game) {
 
     this.messageScreen = new SF.MessageScreen(engine);
     this.title = "LEVEL 1"
-    this.message = "Destroy " + String(this.game.goal) + " enemies";
+    this.message = "Destroy " + String(this.game.goal) + " " + this.game.enemyName;
     this.messageScreen.setHTMLText(this.title, this.message);
     var that = this;
     this.notificationMsg = {
@@ -1421,7 +1422,7 @@ SF.LevelScene.prototype.nextLevel = function() {
     this.animation = false;
     this.notificationMsg.message = "completed";
     this.title = "LEVEL " + String(game.level);
-    this.message =  "Destroy " + String(game.goal) + " enemies";
+    this.message =  "Destroy " + String(game.goal) + " " + this.game.enemyName;
     this.messageScreen.setHTMLText(this.title, this.message);
     this.game.gameScene.starship.resetShield();
     
