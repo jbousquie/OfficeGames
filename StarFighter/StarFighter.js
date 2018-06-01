@@ -643,7 +643,7 @@ SF.Enemies.prototype.animate = function() {
     }
 
 };
-SF.Enemies.resetRandomPosition = function() {
+SF.Enemies.prototype.resetRandomPosition = function() {
     for (var e = 0|0; e < this.enemyNb; e++) {
         var en = this.pool[e];
         en.setRandomPosition();
@@ -1431,6 +1431,7 @@ SF.LevelScene.prototype.nextLevel = function() {
     this.message =  "Destroy " + String(game.goal) + " " + this.game.enemyName;
     this.messageScreen.setHTMLText(this.title, this.message);
     this.game.gameScene.starship.resetShield();
+    console.log(this.game.gameScene.enemies);
     this.game.gameScene.enemies.resetRandomPosition();
     
 };
