@@ -453,11 +453,15 @@ SF.Enemy = function(id, model, gameScene) {
             }
         }
     };
-        // set enemy initial positions in space
-    enemySPS.mesh.position.z = 50.0 + Math.random() * 10.0;
-    enemySPS.mesh.position.y = -4.0 + Math.random() * 8.0;
-    enemySPS.mesh.position.x = -this.gameScene.enemyNb * 4.0 + this.gameScene.enemyNb * 2.0 * this.id;
-    enemySPS.mesh.rotation.z = Math.random() * this.id;    
+    // set enemy initial positions in space
+    this.setRandomPosition();
+};
+SF.Enemy.prototype.setRandomPosition = function() {
+    var mesh = this.mesh;
+    mesh.position.z = 50.0 + Math.random() * 10.0;
+    mesh.position.y = -4.0 + Math.random() * 8.0;
+    mesh.position.x = -this.gameScene.enemyNb * 4.0 + this.gameScene.enemyNb * 2.0 * this.id;
+    mesh.rotation.z = Math.random() * this.id;
 };
 SF.Enemy.prototype.shoot = function() {
     var search = true;
@@ -541,6 +545,7 @@ SF.Enemy.prototype.rebuild = function() {
     } 
     this.sps.setParticles();  
     this.speed = this.gameScene.enemySpeed * Math.random();
+    this.setRandomPosition();
 };
 SF.Enemies = function(gameScene) {
     this.gameScene = gameScene;
@@ -1418,6 +1423,8 @@ SF.LevelScene.prototype.nextLevel = function() {
     this.title = "LEVEL " + String(game.level);
     this.message =  "Destroy " + String(game.goal) + " enemies";
     this.messageScreen.setHTMLText(this.title, this.message);
+    this.game.gameScene.starship.resetShield();
+    
 };
 SF.LevelScene.prototype.gameOver = function() {
     this.notificationMsg.message = "restart";
@@ -1534,12 +1541,14 @@ var init = function(game) {
     var sceneManager = new game.SceneManager();
     var levelScene = new game.LevelScene(engine, game);
     var gameScene = new game.GameScene(canvas, engine, game);
-    
     var BJSLevelScene = levelScene.scene;
     var BJSGameScene = gameScene.scene;
-    // keep a reference of the logical scene in the BJS scene object
+    // keep a reference of the logical scene in the BJS scene objects
     BJSLevelScene.logicalScene = levelScene;
     BJSGameScene.logicalScene = gameScene;
+    // keep a reference of the logical scene in the game object
+    game.gameScene = gameScene;
+    game.levelScene = levelScene;
 
     // register the BJS scenes in the sceneManager
     sceneManager.addScene("game", BJSGameScene);            
