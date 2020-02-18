@@ -1,0 +1,17 @@
+{
+   "compilerOptions": {
+       "target": "es6",
+       "typeRoots": [
+           "src"
+       ],
+       "sourceMap": true,
+       "outDir": "./dist/",
+       "declaration": true,
+       "module": "es6",
+       "lib": ["es6", "DOM"]
+   },
+   "include": [
+       "!src/babylon.d.ts",
+       "src/**/*"
+   ]
+}
