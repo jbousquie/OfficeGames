@@ -1,13 +1,16 @@
 export declare class MazeMap {
     map: string[];
-    wallTag: string;
+    HWallTag: string;
+    VWallTag: string;
     static PacMan: {
-        wallTag: string;
+        HWallTag: string;
+        VWallTag: string;
         map: string[];
     };
     static Folder: {
         "PacMan": {
-            wallTag: string;
+            HWallTag: string;
+            VWallTag: string;
             map: string[];
         };
     };

@@ -43,7 +43,8 @@ const init = () => {
     // create a renderer and a maze scene
     const renderer = new Renderer;
     const mazeScene = new MazeScene(renderer.canvas, renderer.engine);
-    mazeScene.buildMaze("PacMan", 100, 100, 6, 6, 3);
+    const blockSize = 3.6;
+    mazeScene.buildMaze("PacMan", 100, 108, blockSize, blockSize, blockSize * 0.2);
     // init the scene rendering at the wanted framerate
     const BJSScene = mazeScene.BJSScene;
     renderer.render(BJSScene, 45);
