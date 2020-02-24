@@ -11,6 +11,7 @@ export class Maze {
     public height: number = 100;
     public widthNumber: number = 0;
     public heightNumber: number = 0;
+    public playerInitialPosition: BABYLON.Vector2 = BABYLON.Vector2.Zero() ;
 
     /**
      * Creates a logical maze (coordinates) from the map
@@ -26,6 +27,7 @@ export class Maze {
         const map = mapObject.map;
         const HWallTag = mapObject.HWallTag;
         const VWallTag = mapObject.VWallTag;
+        const playerTag = mapObject.playerTag;
         this.width = mazeWidth;
         this.height = mazeHeight;
 
@@ -37,13 +39,16 @@ export class Maze {
             let row = map[rowIdx];
             for (let colIdx = 0; colIdx < colNb; colIdx++) {
                 let col = row[colIdx];
+                let x = colIdx * colStep - mazeWidth * 0.5;
+                let y = -rowIdx * rowStep + mazeHeight * 0.5;
                 if (col == VWallTag || col == HWallTag) {
-                    let x = colIdx * colStep - mazeWidth * 0.5;
-                    let y = rowIdx * rowStep - mazeHeight * 0.5;
                     this.wallPositions.push(new BABYLON.Vector2(x, y));
                     this.wallNb++;
                     let orientation = (col == HWallTag);
                     this.wallOrientations.push(orientation);
+                }
+                if (col == playerTag) {
+                    this.playerInitialPosition.copyFromFloats(x, y);
                 }
             }
         }

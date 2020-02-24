@@ -7,5 +7,10 @@ export declare class Partitioning {
     minimum: BABYLON.Vector3;
     precision: number;
     quads: BABYLON.SolidParticle[][][];
+    hBlock: number;
+    vBlock: number;
+    tolerance: number;
     constructor(sps: BABYLON.SolidParticleSystem, Hnb?: number, Vnb?: number);
+    insertParticleInBlock(particle: BABYLON.SolidParticle, row: number, col: number): boolean;
+    getBlocksAt(x: number, y: number): BABYLON.SolidParticle[];
 }

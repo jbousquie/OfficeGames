@@ -15,11 +15,13 @@ export class Maze {
         this.height = 100;
         this.widthNumber = 0;
         this.heightNumber = 0;
+        this.playerInitialPosition = BABYLON.Vector2.Zero();
         const mazeWidth = (width) ? width : this.defaultWidth;
         const mazeHeight = (height) ? height : this.defaultHeight;
         const map = mapObject.map;
         const HWallTag = mapObject.HWallTag;
         const VWallTag = mapObject.VWallTag;
+        const playerTag = mapObject.playerTag;
         this.width = mazeWidth;
         this.height = mazeHeight;
         const rowNb = map.length;
@@ -30,13 +32,16 @@ export class Maze {
             let row = map[rowIdx];
             for (let colIdx = 0; colIdx < colNb; colIdx++) {
                 let col = row[colIdx];
+                let x = colIdx * colStep - mazeWidth * 0.5;
+                let y = -rowIdx * rowStep + mazeHeight * 0.5;
                 if (col == VWallTag || col == HWallTag) {
-                    let x = colIdx * colStep - mazeWidth * 0.5;
-                    let y = rowIdx * rowStep - mazeHeight * 0.5;
                     this.wallPositions.push(new BABYLON.Vector2(x, y));
                     this.wallNb++;
                     let orientation = (col == HWallTag);
                     this.wallOrientations.push(orientation);
+                }
+                if (col == playerTag) {
+                    this.playerInitialPosition.copyFromFloats(x, y);
                 }
             }
         }

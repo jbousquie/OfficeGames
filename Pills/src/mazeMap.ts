@@ -2,11 +2,13 @@ export class MazeMap {
     public map: string[];
     public HWallTag: string;
     public VWallTag: string;
+    public playerTag: string;
 
-    public static PacMan: { HWallTag: string, VWallTag: string, map: string[] } =
+    public static PacMan: { HWallTag: string, VWallTag: string, playerTag: string, map: string[] } =
      { 
         HWallTag: "-",
         VWallTag: "!",
+        playerTag: "o",
         map:  [
                 "----------------------------",
                 "!            !!            !",
@@ -24,7 +26,7 @@ export class MazeMap {
                 "          !      !          ",
                 "------ !! !      ! !! ------",
                 "     ! !! -------- !! !     ",
-                "     ! !!          !! !     ",
+                "     ! !!     o    !! !     ",
                 "     ! !! -------- !! !     ",
                 "------ !! -------- !! ------",
                 "!            !!            !",
@@ -54,5 +56,6 @@ export class MazeMap {
         this.map = m.map;
         this.HWallTag = m.HWallTag;
         this.VWallTag = m.VWallTag;
+        this.playerTag = m.playerTag;
     }
 }

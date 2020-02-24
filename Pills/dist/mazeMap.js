@@ -8,11 +8,13 @@ export class MazeMap {
         this.map = m.map;
         this.HWallTag = m.HWallTag;
         this.VWallTag = m.VWallTag;
+        this.playerTag = m.playerTag;
     }
 }
 MazeMap.PacMan = {
     HWallTag: "-",
     VWallTag: "!",
+    playerTag: "o",
     map: [
         "----------------------------",
         "!            !!            !",
@@ -30,7 +32,7 @@ MazeMap.PacMan = {
         "          !      !          ",
         "------ !! !      ! !! ------",
         "     ! !! -------- !! !     ",
-        "     ! !!          !! !     ",
+        "     ! !!     o    !! !     ",
         "     ! !! -------- !! !     ",
         "------ !! -------- !! ------",
         "!            !!            !",

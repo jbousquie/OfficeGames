@@ -1,6 +1,7 @@
 import { Maze } from './maze.js';
 import { MazeMap } from './mazeMap.js';
 import { Partitioning } from './partitioning.js';
+import { Player } from './player.js';
 
 export class MazeScene {
     public BJSScene: BABYLON.Scene;
@@ -23,6 +24,9 @@ export class MazeScene {
     public camera: BABYLON.ArcRotateCamera;
     public hemiLight: BABYLON.HemisphericLight;
     public wallTextureURL = "images/stonewall.jpg";
+    public player: Player;
+    public playerInitialPosition: BABYLON.Vector2;
+    public before: number = 0;
 
     constructor(canvas: HTMLElement, engine: BABYLON.Engine,) {
         const scene = new BABYLON.Scene(engine);
@@ -32,12 +36,10 @@ export class MazeScene {
         scene.clearColor = clearColor;
         const camera = new BABYLON.ArcRotateCamera("cam", 0, 0, 10, BABYLON.Vector3.Zero(), scene);
         camera.attachControl(canvas, true);
-        console.log(camera.inputs.attached)
         camera.inputs.attached.keyboard.detachControl(canvas);
         const hl = new BABYLON.HemisphericLight('hl', BABYLON.Axis.Y, scene);
         this.camera = camera;
         this.hemiLight = hl;
-
     }
 
 
@@ -56,6 +58,7 @@ export class MazeScene {
         this.wallWidth = wallWidth ? wallWidth : this.width / (this.widthNumber - 1);
         this.wallLength = wallLength ? wallLength : this.height / (this.heightNumber - 1);
         this.wallHeight = wallHeight ? wallHeight : this.wallWidth;
+        this.playerInitialPosition = this.maze.playerInitialPosition;
 
         const model = BABYLON.MeshBuilder.CreateBox("b", {width: this.wallWidth, depth: this.wallHeight,  height: this.wallLength}, this.BJSScene);
         const sps = new BABYLON.SolidParticleSystem('walls', this.BJSScene, {particleIntersection: true, boundingSphereOnly: false});
@@ -66,9 +69,8 @@ export class MazeScene {
         sps.setParticles();
 
         if (!this.vertical) {
-            this.camera.setPosition(new BABYLON.Vector3(0, 0, -this.height));
-            this.camera.upVector = new BABYLON.Vector3(0, -1, 0.001);
-            this.hemiLight.direction = new BABYLON.Vector3(0, 0, 1);
+            this.camera.setPosition(new BABYLON.Vector3(0, 0,-this.height));
+            this.hemiLight.direction = new BABYLON.Vector3(0, 0, -1);
         }
         this.sps = sps;
 
@@ -90,7 +92,20 @@ export class MazeScene {
         }
     }
 
-    public createPlayer() {
-        
+
+    public init(name: string) {
+        const blockSize = 3.6;
+        this.buildMaze(name, 100, 108, blockSize, blockSize, blockSize * 0.2);
+        this.player = new Player(blockSize * 0.7, this);
+
+        const player = this.player;
+        this.BJSScene.onBeforeRenderObservable.add(() => {
+            const now = Date.now();
+            const deltaTime = (Date.now() - this.before) * 0.001;
+            this.before = now;
+            player.move(deltaTime);
+        });
+
+        this.before = Date.now();
     }
 };

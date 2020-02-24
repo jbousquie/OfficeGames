@@ -1,6 +1,7 @@
 import { Maze } from './maze.js';
 import { MazeMap } from './mazeMap.js';
 import { Partitioning } from './partitioning.js';
+import { Player } from './player.js';
 export declare class MazeScene {
     BJSScene: BABYLON.Scene;
     vertical: boolean;
@@ -22,8 +23,11 @@ export declare class MazeScene {
     camera: BABYLON.ArcRotateCamera;
     hemiLight: BABYLON.HemisphericLight;
     wallTextureURL: string;
+    player: Player;
+    playerInitialPosition: BABYLON.Vector2;
+    before: number;
     constructor(canvas: HTMLElement, engine: BABYLON.Engine);
     buildMaze(mapName: string, width?: number, height?: number, wallWidth?: number, wallLength?: number, wallHeight?: number, vertical?: boolean): void;
     setWall(p: any, i: number, s: number): void;
-    createPlayer(): void;
+    init(name: string): void;
 }
