@@ -11,7 +11,7 @@ export class Player {
     private tmpPosition: BABYLON.Vector3 = BABYLON.Vector3.Zero();
     private tmpMin: BABYLON.Vector3 = BABYLON.Vector3.Zero();
     private tmpMax: BABYLON.Vector3 = BABYLON.Vector3.Zero();
-    public partitioning: Partitioning;
+    public wallPartitioning: Partitioning;
     public alive: boolean = true;
     public speed: number = 30;
     public velocity: BABYLON.Vector3 = BABYLON.Vector3.Zero();
@@ -19,7 +19,7 @@ export class Player {
 
     constructor(size: number, mazeScene: MazeScene) {
         this.mazeScence = mazeScene;
-        this.partitioning = mazeScene.partitioning;
+        this.wallPartitioning = mazeScene.wallPartitioning;
         this.size = size;
         const scene = mazeScene.BJSScene;
         const playerMesh = BABYLON.MeshBuilder.CreateBox("player", {size: size}, scene);
@@ -77,7 +77,7 @@ export class Player {
         this.max.addToRef(tmpPos, tmpMax);
 
         let intersect = false;
-        const blocks = this.partitioning.getBlocksAt(tmpPos.x, tmpPos.y);
+        const blocks = this.wallPartitioning.getBlocksAt(tmpPos.x, tmpPos.y);
         if (blocks) {
             let b = 0;
             while (b < blocks.length && !intersect) {

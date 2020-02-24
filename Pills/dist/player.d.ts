@@ -10,7 +10,7 @@ export declare class Player {
     private tmpPosition;
     private tmpMin;
     private tmpMax;
-    partitioning: Partitioning;
+    wallPartitioning: Partitioning;
     alive: boolean;
     speed: number;
     velocity: BABYLON.Vector3;

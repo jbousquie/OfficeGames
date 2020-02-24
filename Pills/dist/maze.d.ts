@@ -10,6 +10,8 @@ export declare class Maze {
     widthNumber: number;
     heightNumber: number;
     playerInitialPosition: BABYLON.Vector2;
+    pillPositions: BABYLON.Vector2[];
+    pillNb: number;
     /**
      * Creates a logical maze (coordinates) from the map
      * @param mapObject

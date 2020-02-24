@@ -31,7 +31,6 @@ export class Partitioning {
         const vBlock = Vnb / this.Vsize;
         this.hBlock = hBlock;
         this.vBlock = vBlock;
-        const quads = this.quads;
 
         const vertex0 = BABYLON.Vector3.Zero();
         const vertex1  = BABYLON.Vector3.Zero();

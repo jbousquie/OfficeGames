@@ -18,8 +18,12 @@ export declare class MazeScene {
     wallNb: number;
     wallPositions: BABYLON.Vector2[];
     wallOrientations: boolean[];
-    sps: BABYLON.SolidParticleSystem;
-    partitioning: Partitioning;
+    wallSPS: BABYLON.SolidParticleSystem;
+    pillSPS: BABYLON.SolidParticleSystem;
+    pillNb: number;
+    pillPositions: BABYLON.Vector2[];
+    wallPartitioning: Partitioning;
+    pillSize: number;
     camera: BABYLON.ArcRotateCamera;
     hemiLight: BABYLON.HemisphericLight;
     wallTextureURL: string;
@@ -27,7 +31,8 @@ export declare class MazeScene {
     playerInitialPosition: BABYLON.Vector2;
     before: number;
     constructor(canvas: HTMLElement, engine: BABYLON.Engine);
-    buildMaze(mapName: string, width?: number, height?: number, wallWidth?: number, wallLength?: number, wallHeight?: number, vertical?: boolean): void;
-    setWall(p: any, i: number, s: number): void;
+    buildMaze(mapName: string, width?: number, height?: number, wallWidth?: number, wallLength?: number, wallHeight?: number, pillSize?: number, vertical?: boolean): void;
+    setWall(p: BABYLON.SolidParticle, i: number, s: number): void;
+    setPill(p: BABYLON.SolidParticle, i: number, s: number): void;
     init(name: string): void;
 }

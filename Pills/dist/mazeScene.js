@@ -18,7 +18,7 @@ export class MazeScene {
         this.camera = camera;
         this.hemiLight = hl;
     }
-    buildMaze(mapName, width, height, wallWidth, wallLength, wallHeight, vertical) {
+    buildMaze(mapName, width, height, wallWidth, wallLength, wallHeight, pillSize, vertical) {
         this.vertical = vertical ? true : false;
         this.mazeMap = new MazeMap(mapName);
         this.maze = new Maze(this.mazeMap, width, height);
@@ -32,24 +32,35 @@ export class MazeScene {
         this.wallWidth = wallWidth ? wallWidth : this.width / (this.widthNumber - 1);
         this.wallLength = wallLength ? wallLength : this.height / (this.heightNumber - 1);
         this.wallHeight = wallHeight ? wallHeight : this.wallWidth;
+        this.pillSize = pillSize ? this.pillSize : this.wallWidth * 0.1;
+        this.pillNb = this.maze.pillNb;
+        this.pillPositions = this.maze.pillPositions;
         this.playerInitialPosition = this.maze.playerInitialPosition;
-        const model = BABYLON.MeshBuilder.CreateBox("b", { width: this.wallWidth, depth: this.wallHeight, height: this.wallLength }, this.BJSScene);
-        const sps = new BABYLON.SolidParticleSystem('walls', this.BJSScene, { particleIntersection: true, boundingSphereOnly: false });
-        sps.addShape(model, this.wallNb, { positionFunction: (p, i, s) => this.setWall(p, i, s) });
-        sps.buildMesh();
-        model.dispose();
-        sps.computeBoundingBox = true;
-        sps.setParticles();
+        const wallModel = BABYLON.MeshBuilder.CreateBox("b", { width: this.wallWidth, depth: this.wallHeight, height: this.wallLength }, this.BJSScene);
+        const wallSPS = new BABYLON.SolidParticleSystem('walls', this.BJSScene, { particleIntersection: true, boundingSphereOnly: false });
+        wallSPS.addShape(wallModel, this.wallNb, { positionFunction: (p, i, s) => this.setWall(p, i, s) });
+        wallSPS.buildMesh();
+        wallModel.dispose();
+        wallSPS.computeBoundingBox = true;
+        wallSPS.setParticles();
+        const pillModel = BABYLON.MeshBuilder.CreatePolyhedron("p", { size: this.pillSize }, this.BJSScene);
+        const pillSPS = new BABYLON.SolidParticleSystem('pills', this.BJSScene, { particleIntersection: true, boundingSphereOnly: false });
+        pillSPS.addShape(pillModel, this.pillNb, { positionFunction: (p, i, s) => this.setPill(p, i, s) });
+        pillSPS.buildMesh();
+        pillModel.dispose();
+        pillSPS.computeBoundingBox = true;
+        pillSPS.setParticles();
         if (!this.vertical) {
             this.camera.setPosition(new BABYLON.Vector3(0, 0, -this.height));
             this.hemiLight.direction = new BABYLON.Vector3(0, 0, -1);
         }
-        this.sps = sps;
+        this.wallSPS = wallSPS;
+        this.pillSPS = pillSPS;
         const wallTexture = new BABYLON.Texture(this.wallTextureURL, this.BJSScene);
         const wallMaterial = new BABYLON.StandardMaterial("wallMat", this.BJSScene);
         wallMaterial.diffuseTexture = wallTexture;
-        this.sps.mesh.material = wallMaterial;
-        this.partitioning = new Partitioning(sps, 10, 10);
+        this.wallSPS.mesh.material = wallMaterial;
+        this.wallPartitioning = new Partitioning(wallSPS, 10, 10);
     }
     setWall(p, i, s) {
         let pos = this.wallPositions[i];
@@ -59,6 +70,11 @@ export class MazeScene {
         if (!orientation) {
             p.rotation.z = Math.PI * 0.5;
         }
+    }
+    setPill(p, i, s) {
+        let pos = this.pillPositions[i];
+        p.position.x = pos.x;
+        p.position.y = pos.y;
     }
     init(name) {
         const blockSize = 3.6;

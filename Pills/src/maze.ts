@@ -12,6 +12,8 @@ export class Maze {
     public widthNumber: number = 0;
     public heightNumber: number = 0;
     public playerInitialPosition: BABYLON.Vector2 = BABYLON.Vector2.Zero() ;
+    public pillPositions: BABYLON.Vector2[] = [];
+    public pillNb: number = 0;
 
     /**
      * Creates a logical maze (coordinates) from the map
@@ -28,6 +30,7 @@ export class Maze {
         const HWallTag = mapObject.HWallTag;
         const VWallTag = mapObject.VWallTag;
         const playerTag = mapObject.playerTag;
+        const pillTag = mapObject.pillTag;
         this.width = mazeWidth;
         this.height = mazeHeight;
 
@@ -49,6 +52,10 @@ export class Maze {
                 }
                 if (col == playerTag) {
                     this.playerInitialPosition.copyFromFloats(x, y);
+                }
+                if (col == pillTag) {
+                    this.pillPositions.push(new BABYLON.Vector2(x, y));
+                    this.pillNb++;
                 }
             }
         }
